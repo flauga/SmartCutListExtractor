@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Cut List — Review</title>
+  <style>
+    /* -----------------------------------------------------------------------
+       Design tokens — Fusion 360 dark theme
+    ----------------------------------------------------------------------- */
+    :root {
+      --bg:           #2D2D2D;
+      --bg-panel:     #363636;
+      --bg-row-alt:   #323232;
+      --bg-input:     #454545;
+      --bg-header:    #3F3F3F;
+      --bg-section:   #404040;
+      --bg-hover:     #4A4A4A;
+      --text:         #E0E0E0;
+      --text-dim:     #9A9A9A;
+      --text-header:  #CCCCCC;
+      --accent:       #4A9EDE;
+      --accent-hover: #5BAEE8;
+      --border:       #505050;
+      --border-light: #5A5A5A;
+      --green:        #4DB368;
+      --yellow:       #E8B84B;
+      --red:          #D9534F;
+      --orange:       #E88A4B;
+      --radius:       4px;
+      --transition:   0.15s ease;
+    }
+
+    /* -----------------------------------------------------------------------
+       Reset & base
+    ----------------------------------------------------------------------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* -----------------------------------------------------------------------
+       Layout shell
+    ----------------------------------------------------------------------- */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* -----------------------------------------------------------------------
+       Settings panel
+    ----------------------------------------------------------------------- */
+    #settings-panel {
+      flex-shrink: 0;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+    }
+
+    .settings-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .settings-row + .settings-row { margin-top: 6px; }
+
+    .settings-label {
+      color: var(--text-dim);
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    .settings-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 4px 8px;
+      font-size: 12px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .settings-input:focus { border-color: var(--accent); }
+
+    #naming-template { width: 260px; }
+
+    select.settings-input { cursor: pointer; }
+
+    .settings-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Summary pill */
+    #summary-pill {
+      margin-left: auto;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    #summary-pill strong { color: var(--accent); }
+
+    /* -----------------------------------------------------------------------
+       Table area (scrollable)
+    ----------------------------------------------------------------------- */
+    #table-wrap {
+      flex: 1 1 0;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+
+    /* Custom scrollbar */
+    #table-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+    #table-wrap::-webkit-scrollbar-track { background: var(--bg); }
+    #table-wrap::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 4px;
+    }
+    #table-wrap::-webkit-scrollbar-thumb:hover { background: #707070; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    /* Column widths */
+    .col-include   { width: 46px; }
+    .col-name      { width: 140px; }
+    .col-type      { width: 150px; }
+    .col-confidence{ width: 110px; }
+    .col-material  { width: 110px; }
+    .col-dims      { width: 140px; }
+    .col-qty       { width: 44px; }
+    .col-filename  { width: auto; min-width: 180px; }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-header);
+    }
+
+    th {
+      padding: 7px 8px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--text-header);
+      border-bottom: 2px solid var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th.col-include, td.col-include { text-align: center; }
+    th.col-qty,     td.col-qty     { text-align: center; }
+
+    /* -----------------------------------------------------------------------
+       Section header rows
+    ----------------------------------------------------------------------- */
+    .section-row {
+      background: var(--bg-section);
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-row:hover { background: #484848; }
+
+    .section-row td {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.04em;
+      border-top: 1px solid var(--border-light);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-row .section-toggle {
+      display: inline-block;
+      margin-right: 6px;
+      transition: transform var(--transition);
+    }
+    .section-row.collapsed .section-toggle { transform: rotate(-90deg); }
+
+    .section-count {
+      margin-left: 6px;
+      background: var(--bg-input);
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-dim);
+    }
+
+    .section-review-badge {
+      margin-left: 6px;
+      background: var(--orange);
+      color: #1A1A1A;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* -----------------------------------------------------------------------
+       Data rows
+    ----------------------------------------------------------------------- */
+    .data-row td {
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      overflow: hidden;
+    }
+
+    .data-row:nth-child(even) { background: var(--bg-row-alt); }
+    .data-row:hover           { background: var(--bg-hover); }
+
+    .data-row.excluded td { opacity: 0.45; }
+    .data-row.excluded td.col-include { opacity: 1; }
+
+    .data-row.needs-review td.col-confidence::after {
+      content: ' ⚠';
+      color: var(--orange);
+      font-size: 10px;
+    }
+
+    /* Part name cell */
+    .part-name {
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .part-comp {
+      font-size: 10px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Type dropdown */
+    select.type-select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 3px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    select.type-select:hover  { border-color: var(--border-light); }
+    select.type-select:focus  { border-color: var(--accent); }
+    select.type-select.overridden { color: var(--accent); font-style: italic; }
+
+    /* Confidence bar */
+    .conf-wrap {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .conf-bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--bg-input);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .conf-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .conf-value {
+      font-size: 10px;
+      color: var(--text-dim);
+      width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Material input */
+    input.material-input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 3px 6px;
+      font-size: 11px;
+      outline: none;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    input.material-input:hover  { background: var(--bg-input); border-color: var(--border-light); }
+    input.material-input:focus  { background: var(--bg-input); border-color: var(--accent); }
+
+    /* Dimensions cell */
+    .dims-text {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dims-unit {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* Qty badge */
+    .qty-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 20px;
+      background: var(--bg-input);
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      padding: 0 6px;
+    }
+    .qty-badge.many { background: var(--accent); color: #fff; }
+
+    /* Filename preview */
+    .filename-preview {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Checkbox */
+    input[type="checkbox"].row-check {
+      accent-color: var(--accent);
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+    }
+
+    /* -----------------------------------------------------------------------
+       Empty / loading states
+    ----------------------------------------------------------------------- */
+    #empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--text-dim);
+      gap: 10px;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* -----------------------------------------------------------------------
+       Export bar
+    ----------------------------------------------------------------------- */
+    #export-bar {
+      flex-shrink: 0;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .export-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-right: 4px;
+    }
+
+    button.export-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 5px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition),
+                  color var(--transition);
+      white-space: nowrap;
+    }
+    button.export-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    button.export-btn:active { opacity: 0.75; }
+
+    button.export-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    button.export-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+
+    .export-spacer { flex: 1; }
+
+    /* Status text */
+    #status-text {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-style: italic;
+      min-width: 120px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== Settings panel ===== -->
+  <div id="settings-panel">
+    <div class="settings-title">Settings</div>
+
+    <div class="settings-row">
+      <span class="settings-label">Naming Template:</span>
+      <input id="naming-template" class="settings-input" type="text"
+             value="{name}_{material}_{dims}"
+             title="Available tokens: {name} {material} {dims} {type} {qty}">
+
+      <div class="settings-divider"></div>
+
+      <span class="settings-label">Units:</span>
+      <select id="unit-select" class="settings-input">
+        <option value="mm">mm</option>
+        <option value="inches">inches</option>
+      </select>
+
+      <div class="settings-divider"></div>
+
+      <label class="checkbox-group" title="Include bend lines in DXF export">
+        <input type="checkbox" id="opt-bend-lines" checked>
+        Bend Lines (DXF)
+      </label>
+
+      <label class="checkbox-group" title="Include dimension annotations in DXF export">
+        <input type="checkbox" id="opt-dimensions" checked>
+        Dimensions (DXF)
+      </label>
+
+      <div id="summary-pill">
+        <strong id="summary-count">—</strong> parts &nbsp;|&nbsp;
+        <strong id="summary-review">—</strong> need review
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Scrollable table area ===== -->
+  <div id="table-wrap">
+    <div id="empty-state">
+      <div class="spinner"></div>
+      <span>Waiting for Fusion 360 data…</span>
+    </div>
+
+    <table id="cutlist-table" style="display:none;">
+      <thead>
+        <tr>
+          <th class="col-include">✓</th>
+          <th class="col-name">Part Name</th>
+          <th class="col-type">Type</th>
+          <th class="col-confidence">Confidence</th>
+          <th class="col-material">Material</th>
+          <th class="col-dims">Dimensions</th>
+          <th class="col-qty">Qty</th>
+          <th class="col-filename">Export Filename Preview</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- ===== Export bar ===== -->
+  <div id="export-bar">
+    <span class="export-label">Export:</span>
+    <button class="export-btn primary" id="btn-export-csv">⬇ CSV</button>
+    <button class="export-btn"         id="btn-export-json">⬇ JSON</button>
+    <button class="export-btn"         id="btn-export-dxf">⬇ DXF</button>
+    <div class="export-spacer"></div>
+    <span id="status-text"></span>
+  </div>
+
+</div>
+
+<script>
+/* ==========================================================================
+   State
+   ========================================================================== */
+const state = {
+  groups:    [],        // array of group dicts from Python
+  partTypes: [],        // ordered array of PartType string constants
+  collapsed: new Set(), // set of type-strings whose sections are collapsed
+  settings: {
+    naming_template: '{name}_{material}_{dims}',
+    unit: 'mm',
+    include_bend_lines: true,
+    include_dimensions: true,
+  },
+};
+
+/* ==========================================================================
+   Fusion 360 messaging
+   ========================================================================== */
+
+/**
+ * Receive data from Python.
+ * Python calls:  palette.sendInfoToHTML(action, jsonString)
+ * JS receives:   window.fusionJavaScriptHandler.handle(action, jsonString)
+ */
+window.fusionJavaScriptHandler = {
+  handle(action, data) {
+    try {
+      if (action === 'initData') {
+        const msg = JSON.parse(data);
+        state.groups    = msg.groups    || [];
+        state.partTypes = msg.part_types || [];
+        renderAll();
+      }
+    } catch (err) {
+      console.error('[SmartCutList] fusionJavaScriptHandler error:', err);
+    }
+    return '';   // return value available in Python as args.returnValue
+  },
+};
+
+/**
+ * Send a message to Python.
+ * Python receives it via HTMLEventHandler.notify():
+ *   args.action = action
+ *   args.data   = JSON.stringify(payload)
+ */
+function sendToPython(action, payload) {
+  if (window.adsk && typeof adsk.fusionSendData === 'function') {
+    adsk.fusionSendData(action, JSON.stringify(payload));
+  } else {
+    // Running in a normal browser for development / testing
+    console.log('[SmartCutList → Python]', action, payload);
+  }
+}
+
+/* ==========================================================================
+   Utility
+   ========================================================================== */
+
+function sanitiseFilename(s) {
+  return String(s || '').replace(/[^\w\-.]/g, '_');
+}
+
+function buildFilename(group) {
+  const { naming_template, unit } = state.settings;
+  const useInches = unit === 'inches';
+  const factor    = useInches ? 1 / 25.4 : 1.0;
+  const suffix    = useInches ? 'in' : 'mm';
+  const dims      = group.dimensions_mm;
+
+  let dimsStr = 'unknown';
+  if (dims && dims.length >= 3) {
+    dimsStr = dims.map(d => (d * factor).toFixed(1)).join('x') + suffix;
+  }
+
+  return naming_template
+    .replace('{name}',     sanitiseFilename(group.display_name))
+    .replace('{material}', sanitiseFilename(group.material_name))
+    .replace('{dims}',     dimsStr)
+    .replace('{type}',     sanitiseFilename(group.classified_type))
+    .replace('{qty}',      String(group.quantity));
+}
+
+function confColor(v) {
+  if (v >= 0.8) return 'var(--green)';
+  if (v >= 0.5) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function formatDims(dims, settings) {
+  if (!dims || dims.length < 3) return '—';
+  const useInches = settings.unit === 'inches';
+  const factor = useInches ? 1 / 25.4 : 1.0;
+  const unit   = useInches ? 'in' : 'mm';
+  const [s, m, l] = dims;
+  return `${(l * factor).toFixed(1)} × ${(m * factor).toFixed(1)} × ${(s * factor).toFixed(1)} <span class="dims-unit">${unit}</span>`;
+}
+
+function currentSettings() {
+  return {
+    naming_template:   document.getElementById('naming-template').value,
+    unit:              document.getElementById('unit-select').value,
+    include_bend_lines: document.getElementById('opt-bend-lines').checked,
+    include_dimensions: document.getElementById('opt-dimensions').checked,
+  };
+}
+
+/* ==========================================================================
+   Rendering
+   ========================================================================== */
+
+function renderAll() {
+  syncSettingsFromInputs();
+  updateSummary();
+
+  const empty = document.getElementById('empty-state');
+  const table = document.getElementById('cutlist-table');
+
+  if (state.groups.length === 0) {
+    empty.style.display = 'flex';
+    table.style.display = 'none';
+    empty.innerHTML = '<span style="color:var(--text-dim)">No parts to review.</span>';
+    return;
+  }
+
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  // Group rows by classified_type
+  const byType = {};
+  for (const g of state.groups) {
+    const t = g.classified_type;
+    if (!byType[t]) byType[t] = [];
+    byType[t].push(g);
+  }
+
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  for (const type of Object.keys(byType).sort()) {
+    const groupsForType = byType[type];
+    tbody.appendChild(buildSectionRow(type, groupsForType));
+    if (!state.collapsed.has(type)) {
+      for (const g of groupsForType) {
+        tbody.appendChild(buildDataRow(g));
+      }
+    }
+  }
+}
+
+function buildSectionRow(type, groups) {
+  const isCollapsed = state.collapsed.has(type);
+  const reviewCount = groups.filter(g => g.needs_review).length;
+  const totalQty    = groups.reduce((s, g) => s + g.quantity, 0);
+
+  const tr = document.createElement('tr');
+  tr.className = 'section-row' + (isCollapsed ? ' collapsed' : '');
+  tr.dataset.sectionType = type;
+
+  tr.innerHTML = `
+    <td colspan="8">
+      <span class="section-toggle">▾</span>
+      <strong>${escHtml(type)}</strong>
+      <span class="section-count">${groups.length} group${groups.length !== 1 ? 's' : ''} · ${totalQty} pc${totalQty !== 1 ? 's' : ''}</span>
+      ${reviewCount ? `<span class="section-review-badge">⚠ ${reviewCount} review</span>` : ''}
+    </td>`;
+
+  tr.addEventListener('click', () => {
+    if (state.collapsed.has(type)) state.collapsed.delete(type);
+    else state.collapsed.add(type);
+    renderAll();
+  });
+
+  return tr;
+}
+
+function buildDataRow(group) {
+  const tr = document.createElement('tr');
+  tr.className = 'data-row'
+    + (!group.include    ? ' excluded'    : '')
+    + (group.needs_review ? ' needs-review' : '');
+  tr.dataset.groupId = group.group_id;
+
+  const conf    = group.confidence;
+  const confPct = Math.round(conf * 100);
+  const color   = confColor(conf);
+  const dims    = formatDims(group.dimensions_mm, state.settings);
+  const fname   = buildFilename(group);
+
+  tr.innerHTML = `
+    <td class="col-include">
+      <input type="checkbox" class="row-check"
+             data-gid="${group.group_id}"
+             ${group.include ? 'checked' : ''}>
+    </td>
+    <td class="col-name">
+      <div class="part-name" title="${escHtml(group.display_name)}">${escHtml(group.display_name)}</div>
+      ${group.component_name ? `<div class="part-comp" title="${escHtml(group.component_name)}">${escHtml(group.component_name)}</div>` : ''}
+    </td>
+    <td class="col-type">
+      <select class="type-select${group.override_type ? ' overridden' : ''}"
+              data-gid="${group.group_id}">
+        ${state.partTypes.map(t =>
+          `<option value="${escHtml(t)}" ${t === group.classified_type ? 'selected' : ''}>${escHtml(t)}</option>`
+        ).join('')}
+      </select>
+    </td>
+    <td class="col-confidence">
+      <div class="conf-wrap">
+        <div class="conf-bar-track">
+          <div class="conf-bar-fill"
+               style="width:${confPct}%;background:${color};"></div>
+        </div>
+        <span class="conf-value">${conf.toFixed(2)}</span>
+      </div>
+    </td>
+    <td class="col-material">
+      <input type="text" class="material-input"
+             data-gid="${group.group_id}"
+             value="${escHtml(group.material_name)}"
+             placeholder="Material">
+    </td>
+    <td class="col-dims">
+      <div class="dims-text">${dims}</div>
+    </td>
+    <td class="col-qty">
+      <span class="qty-badge ${group.quantity > 1 ? 'many' : ''}">${group.quantity}</span>
+    </td>
+    <td class="col-filename">
+      <div class="filename-preview" title="${escHtml(fname)}">${escHtml(fname)}</div>
+    </td>`;
+
+  return tr;
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* Only refresh the filename preview column (fast path when settings change) */
+function updateFilenamePreviews() {
+  syncSettingsFromInputs();
+  document.querySelectorAll('.data-row').forEach(tr => {
+    const gid   = tr.dataset.groupId;
+    const group = state.groups.find(g => g.group_id === gid);
+    if (!group) return;
+    const cell = tr.querySelector('.filename-preview');
+    if (cell) {
+      const fname = buildFilename(group);
+      cell.textContent = fname;
+      cell.title       = fname;
+    }
+    const dimsCell = tr.querySelector('.dims-text');
+    if (dimsCell) {
+      dimsCell.innerHTML = formatDims(group.dimensions_mm, state.settings);
+    }
+  });
+  updateSummary();
+}
+
+function updateSummary() {
+  const included     = state.groups.filter(g => g.include);
+  const needsReview  = state.groups.filter(g => g.needs_review);
+  document.getElementById('summary-count').textContent  = included.length;
+  document.getElementById('summary-review').textContent = needsReview.length;
+}
+
+function syncSettingsFromInputs() {
+  state.settings.naming_template   = document.getElementById('naming-template').value;
+  state.settings.unit               = document.getElementById('unit-select').value;
+  state.settings.include_bend_lines = document.getElementById('opt-bend-lines').checked;
+  state.settings.include_dimensions = document.getElementById('opt-dimensions').checked;
+}
+
+/* ==========================================================================
+   Event delegation — table interactions
+   ========================================================================== */
+
+document.getElementById('table-body').addEventListener('change', e => {
+  const el  = e.target;
+  const gid = el.dataset.gid;
+  if (!gid) return;
+  const group = state.groups.find(g => g.group_id === gid);
+  if (!group) return;
+
+  if (el.classList.contains('row-check')) {
+    group.include = el.checked;
+    const row = el.closest('tr');
+    row.classList.toggle('excluded', !el.checked);
+    updateSummary();
+    sendToPython('toggle_include', { group_id: gid, value: el.checked });
+  }
+
+  if (el.classList.contains('type-select')) {
+    const newType = el.value;
+    group.classified_type = newType;
+    group.override_type   = newType;
+    el.classList.add('overridden');
+    // Update filename preview for this row
+    const previewEl = el.closest('tr').querySelector('.filename-preview');
+    if (previewEl) {
+      const fname = buildFilename(group);
+      previewEl.textContent = fname;
+      previewEl.title       = fname;
+    }
+    sendToPython('override_type', { group_id: gid, value: newType });
+  }
+});
+
+document.getElementById('table-body').addEventListener('change', e => {
+  /* Material input — separate handler to avoid select interfering */
+  const el = e.target;
+  if (!el.classList.contains('material-input')) return;
+  const gid = el.dataset.gid;
+  const group = state.groups.find(g => g.group_id === gid);
+  if (!group) return;
+  group.material_name    = el.value;
+  group.override_material = el.value;
+  const previewEl = el.closest('tr').querySelector('.filename-preview');
+  if (previewEl) {
+    const fname = buildFilename(group);
+    previewEl.textContent = fname;
+    previewEl.title       = fname;
+  }
+  sendToPython('override_material', { group_id: gid, value: el.value });
+});
+
+/* ==========================================================================
+   Settings change → live filename preview refresh
+   ========================================================================== */
+
+['naming-template', 'unit-select', 'opt-bend-lines', 'opt-dimensions'].forEach(id => {
+  document.getElementById(id).addEventListener('input',  updateFilenamePreviews);
+  document.getElementById(id).addEventListener('change', updateFilenamePreviews);
+});
+
+/* ==========================================================================
+   Export buttons
+   ========================================================================== */
+
+function exportWith(action) {
+  syncSettingsFromInputs();
+  setStatus('Exporting…');
+  sendToPython(action, { settings: { ...state.settings } });
+  setTimeout(() => setStatus(''), 3000);
+}
+
+document.getElementById('btn-export-csv').addEventListener('click',  () => exportWith('export_csv'));
+document.getElementById('btn-export-json').addEventListener('click', () => exportWith('export_json'));
+document.getElementById('btn-export-dxf').addEventListener('click',  () => exportWith('export_dxf'));
+
+function setStatus(msg) {
+  document.getElementById('status-text').textContent = msg;
+}
+
+/* ==========================================================================
+   Bootstrap — notify Python that the page is ready
+   ========================================================================== */
+
+document.addEventListener('DOMContentLoaded', () => {
+  syncSettingsFromInputs();
+  // Signal Python to push initial data
+  sendToPython('htmlReady', {});
+});
+</script>
+</body>
+</html>
