@@ -1,0 +1,13 @@
+{
+    "autodeskProduct": "Fusion",
+    "type": "addin",
+    "id": "7f3a2b1c-4e5d-4f6a-8b9c-0d1e2f3a4b5c",
+    "author": "SmartCutList",
+    "description": {
+        "": "Generates a smart cut list from selected Fusion 360 components and bodies."
+    },
+    "version": "1.0.0",
+    "runOnStartup": false,
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}
