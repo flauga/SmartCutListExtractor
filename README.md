@@ -17,10 +17,10 @@ A Fusion 360 Python add-in that automatically generates smart cut lists from sel
 ## Installation
 
 1. Download or clone this repository
-2. Copy the `SmartCutList/` folder into your Fusion 360 add-ins directory:
+2. Copy the `SmartCutList/` folder into your Fusion 360 add-ins directory: (optional)
    - **Windows**: `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\`
    - **macOS**: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/`
-3. In Fusion 360, go to **Utilities > Scripts and Add-Ins > Add-Ins**
+3. In Fusion 360, go to **Utilities > Scripts and Add-Ins > Add-Ins** ( Can do this directly after downloading )
 4. Find **SmartCutList** in the list and click **Run**
 
 ## Usage
