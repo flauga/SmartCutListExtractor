@@ -3,913 +3,1783 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Cut List — Review</title>
+  <title>Smart Cut List Review</title>
+  <!-- SMARTCUTLIST_BOOTSTRAP -->
   <style>
-    /* -----------------------------------------------------------------------
-       Design tokens — Fusion 360 dark theme
-    ----------------------------------------------------------------------- */
-    :root {
-      --bg:           #2D2D2D;
-      --bg-panel:     #363636;
-      --bg-row-alt:   #323232;
-      --bg-input:     #454545;
-      --bg-header:    #3F3F3F;
-      --bg-section:   #404040;
-      --bg-hover:     #4A4A4A;
-      --text:         #E0E0E0;
-      --text-dim:     #9A9A9A;
-      --text-header:  #CCCCCC;
-      --accent:       #4A9EDE;
-      --accent-hover: #5BAEE8;
-      --border:       #505050;
-      --border-light: #5A5A5A;
-      --green:        #4DB368;
-      --yellow:       #E8B84B;
-      --red:          #D9534F;
-      --orange:       #E88A4B;
-      --radius:       4px;
-      --transition:   0.15s ease;
-    }
+    *, *::before, *::after { box-sizing: border-box; }
 
-    /* -----------------------------------------------------------------------
-       Reset & base
-    ----------------------------------------------------------------------- */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body {
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    body {
+      margin: 0;
+      font-family: Segoe UI, Arial, sans-serif;
       font-size: 12px;
-      background: var(--bg);
-      color: var(--text);
-      overflow: hidden;
-    }
-
-    /* -----------------------------------------------------------------------
-       Layout shell
-    ----------------------------------------------------------------------- */
-    #app {
+      background: #2f2f2f;
+      color: #e6e6e6;
       display: flex;
       flex-direction: column;
       height: 100vh;
-    }
-
-    /* -----------------------------------------------------------------------
-       Settings panel
-    ----------------------------------------------------------------------- */
-    #settings-panel {
-      flex-shrink: 0;
-      background: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 14px;
-    }
-
-    .settings-title {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 8px;
-    }
-
-    .settings-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .settings-row + .settings-row { margin-top: 6px; }
-
-    .settings-label {
-      color: var(--text-dim);
-      white-space: nowrap;
-      font-size: 11px;
-    }
-
-    .settings-input {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      padding: 4px 8px;
-      font-size: 12px;
-      outline: none;
-      transition: border-color var(--transition);
-    }
-    .settings-input:focus { border-color: var(--accent); }
-
-    #naming-template { width: 260px; }
-
-    select.settings-input { cursor: pointer; }
-
-    .settings-divider {
-      width: 1px;
-      height: 18px;
-      background: var(--border);
-      flex-shrink: 0;
-    }
-
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-      color: var(--text-dim);
-      font-size: 11px;
-    }
-    .checkbox-group input[type="checkbox"] {
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-
-    /* Summary pill */
-    #summary-pill {
-      margin-left: auto;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2px 10px;
-      font-size: 11px;
-      color: var(--text-dim);
-      white-space: nowrap;
-    }
-    #summary-pill strong { color: var(--accent); }
-
-    /* -----------------------------------------------------------------------
-       Table area (scrollable)
-    ----------------------------------------------------------------------- */
-    #table-wrap {
-      flex: 1 1 0;
-      overflow-y: auto;
-      overflow-x: auto;
-    }
-
-    /* Custom scrollbar */
-    #table-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
-    #table-wrap::-webkit-scrollbar-track { background: var(--bg); }
-    #table-wrap::-webkit-scrollbar-thumb {
-      background: var(--border-light);
-      border-radius: 4px;
-    }
-    #table-wrap::-webkit-scrollbar-thumb:hover { background: #707070; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-    /* Column widths */
-    .col-include   { width: 46px; }
-    .col-name      { width: 140px; }
-    .col-type      { width: 150px; }
-    .col-confidence{ width: 110px; }
-    .col-material  { width: 110px; }
-    .col-dims      { width: 140px; }
-    .col-qty       { width: 44px; }
-    .col-filename  { width: auto; min-width: 180px; }
-
-    thead {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--bg-header);
-    }
-
-    th {
-      padding: 7px 8px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--text-header);
-      border-bottom: 2px solid var(--accent);
-      white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
     }
 
-    th.col-include, td.col-include { text-align: center; }
-    th.col-qty,     td.col-qty     { text-align: center; }
+    /* ── Top toolbar ─────────────────────────────────────── */
+    .top-bar {
+      padding: 8px 12px;
+      background: #383838;
+      border-bottom: 1px solid #4a4a4a;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+    }
 
-    /* -----------------------------------------------------------------------
-       Section header rows
-    ----------------------------------------------------------------------- */
-    .section-row {
-      background: var(--bg-section);
+    label { color: #bbbbbb; }
+
+    input[type="text"], select {
+      background: #4a4a4a;
+      color: #f0f0f0;
+      border: 1px solid #606060;
+      border-radius: 3px;
+      padding: 4px 6px;
+    }
+
+    #naming-template { width: 230px; }
+
+    .summary {
+      margin-left: auto;
+      color: #9fd1ff;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    /* ── Bulk-action bar ─────────────────────────────────── */
+    .bulk-bar {
+      padding: 5px 12px;
+      background: #333;
+      border-bottom: 1px solid #4a4a4a;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .bulk-bar label { font-size: 11px; margin-left: 8px; }
+    .bulk-bar select { min-width: 160px; font-size: 11px; }
+    .bulk-bar .search-wrap { margin-left: auto; }
+    .bulk-bar .search-wrap input {
+      width: 180px;
+      background: #3c3c3c;
+      border: 1px solid #555;
+      border-radius: 3px;
+      color: #eee;
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+    .bulk-bar .search-wrap input::placeholder { color: #888; }
+
+    /* ── Main content (single-pane) ──────────────────────── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 12px;
+    }
+
+    /* ── Component accordion sections ───────────────────── */
+    .comp-section {
+      margin-top: 10px;
+    }
+
+    .comp-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 6px;
+      background: #3a3a3a;
+      border-radius: 3px 3px 0 0;
       cursor: pointer;
       user-select: none;
     }
-    .section-row:hover { background: #484848; }
 
-    .section-row td {
-      padding: 6px 10px;
+    .comp-header:hover { background: #404040; }
+
+    .comp-toggle { color: #888; font-size: 10px; width: 12px; text-align: center; }
+    .comp-title { font-weight: 600; color: #bcdfff; font-size: 11px; flex: 1; }
+    .comp-count { font-size: 10px; color: #888; }
+
+    .comp-body { display: block; }
+    .comp-body.collapsed { display: none; }
+
+    /* ── Table ───────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #333333;
       font-size: 11px;
-      font-weight: 600;
-      color: var(--text);
-      letter-spacing: 0.04em;
-      border-top: 1px solid var(--border-light);
-      border-bottom: 1px solid var(--border);
     }
 
-    .section-row .section-toggle {
-      display: inline-block;
-      margin-right: 6px;
-      transition: transform var(--transition);
-    }
-    .section-row.collapsed .section-toggle { transform: rotate(-90deg); }
-
-    .section-count {
-      margin-left: 6px;
-      background: var(--bg-input);
-      border-radius: 10px;
-      padding: 1px 7px;
-      font-size: 10px;
-      font-weight: 400;
-      color: var(--text-dim);
-    }
-
-    .section-review-badge {
-      margin-left: 6px;
-      background: var(--orange);
-      color: #1A1A1A;
-      border-radius: 10px;
-      padding: 1px 7px;
-      font-size: 10px;
-      font-weight: 600;
-    }
-
-    /* -----------------------------------------------------------------------
-       Data rows
-    ----------------------------------------------------------------------- */
-    .data-row td {
-      padding: 5px 8px;
-      border-bottom: 1px solid var(--border);
+    th, td {
+      border-bottom: 1px solid #4b4b4b;
+      padding: 6px 5px;
+      text-align: left;
       vertical-align: middle;
-      overflow: hidden;
     }
 
-    .data-row:nth-child(even) { background: var(--bg-row-alt); }
-    .data-row:hover           { background: var(--bg-hover); }
+    th {
+      background: #3f3f3f;
+      color: #d9d9d9;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
 
-    .data-row.excluded td { opacity: 0.45; }
-    .data-row.excluded td.col-include { opacity: 1; }
+    tr.excluded { opacity: 0.42; }
+    tr.active-row { outline: 1px solid #6bb4ff; background: #394250; }
 
-    .data-row.needs-review td.col-confidence::after {
-      content: ' ⚠';
-      color: var(--orange);
+    /* Left-border type color stripe */
+    tr.type-HollowRectangularChannel td:first-child { border-left: 3px solid #4a9fd9; }
+    tr.type-HollowCircularCylinder   td:first-child { border-left: 3px solid #d9a04a; }
+    tr.type-SolidCylinder            td:first-child { border-left: 3px solid #c47a20; }
+    tr.type-SolidBlock               td:first-child { border-left: 3px solid #7d7d7d; }
+    tr.type-SheetMetal               td:first-child { border-left: 3px solid #4ad97a; }
+    tr[class*="type-3DPrinted"]      td:first-child { border-left: 3px solid #d94a9f; }
+    tr.type-Fastener                 td:first-child { border-left: 3px solid #9a7bdf; }
+    tr.type-SourcedComponent         td:first-child { border-left: 3px solid #4a9fd9; }
+    tr.type-Unknown                  td:first-child { border-left: 3px solid #666; }
+
+    .filename {
+      font-family: Consolas, "Courier New", monospace;
+      color: #9fd1ff;
+      font-size: 10px;
+      word-break: break-all;
+    }
+
+    .muted { color: #999; font-size: 10px; }
+
+    .pill {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: #4b4b4b;
+      color: #d8d8d8;
       font-size: 10px;
     }
 
-    /* Part name cell */
-    .part-name {
-      font-weight: 500;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .part-comp {
-      font-size: 10px;
-      color: var(--text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .pill.ok { background: #2f6d44; color: #d7f3e0; }
+
+    .type-badge {
+      display: inline-block;
+      font-size: 14px;
+      vertical-align: middle;
+      line-height: 1;
     }
 
-    /* Type dropdown */
+    input[type="text"].material-input {
+      width: 90px;
+      font-size: 11px;
+      padding: 2px 4px;
+    }
+
     select.type-select {
-      width: 100%;
-      background: var(--bg-input);
-      border: 1px solid transparent;
-      border-radius: var(--radius);
-      color: var(--text);
-      padding: 3px 6px;
       font-size: 11px;
-      cursor: pointer;
-      outline: none;
-      transition: border-color var(--transition);
-    }
-    select.type-select:hover  { border-color: var(--border-light); }
-    select.type-select:focus  { border-color: var(--accent); }
-    select.type-select.overridden { color: var(--accent); font-style: italic; }
-
-    /* Confidence bar */
-    .conf-wrap {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .conf-bar-track {
-      flex: 1;
-      height: 6px;
-      background: var(--bg-input);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .conf-bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 0.3s ease;
-    }
-    .conf-value {
-      font-size: 10px;
-      color: var(--text-dim);
-      width: 28px;
-      text-align: right;
-      flex-shrink: 0;
+      padding: 2px 4px;
+      min-width: 100px;
     }
 
-    /* Material input */
-    input.material-input {
-      width: 100%;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: var(--radius);
-      color: var(--text);
-      padding: 3px 6px;
-      font-size: 11px;
-      outline: none;
-      transition: background var(--transition), border-color var(--transition);
-    }
-    input.material-input:hover  { background: var(--bg-input); border-color: var(--border-light); }
-    input.material-input:focus  { background: var(--bg-input); border-color: var(--accent); }
-
-    /* Dimensions cell */
-    .dims-text {
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 11px;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .dims-unit {
-      font-size: 10px;
-      color: var(--text-dim);
-    }
-
-    /* Qty badge */
-    .qty-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 24px;
-      height: 20px;
-      background: var(--bg-input);
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text);
-      padding: 0 6px;
-    }
-    .qty-badge.many { background: var(--accent); color: #fff; }
-
-    /* Filename preview */
-    .filename-preview {
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 10px;
-      color: var(--text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Checkbox */
-    input[type="checkbox"].row-check {
-      accent-color: var(--accent);
-      cursor: pointer;
-      width: 14px;
-      height: 14px;
-    }
-
-    /* -----------------------------------------------------------------------
-       Empty / loading states
-    ----------------------------------------------------------------------- */
-    #empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 200px;
-      color: var(--text-dim);
-      gap: 10px;
-    }
-    .spinner {
-      width: 28px;
-      height: 28px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* -----------------------------------------------------------------------
-       Export bar
-    ----------------------------------------------------------------------- */
-    #export-bar {
-      flex-shrink: 0;
-      background: var(--bg-panel);
-      border-top: 1px solid var(--border);
-      padding: 8px 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .export-label {
-      font-size: 11px;
-      color: var(--text-dim);
-      margin-right: 4px;
-    }
-
-    button.export-btn {
-      background: var(--bg-input);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius);
-      color: var(--text);
-      padding: 5px 14px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background var(--transition), border-color var(--transition),
-                  color var(--transition);
-      white-space: nowrap;
-    }
-    button.export-btn:hover {
-      background: var(--bg-hover);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    button.export-btn:active { opacity: 0.75; }
-
-    button.export-btn.primary {
-      background: var(--accent);
-      border-color: var(--accent);
+    button.configure-button {
+      background: #555;
       color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 10px;
+    }
+
+    button.configure-button.done { background: #2f6d44; }
+
+    /* ── Tab bar ────────────────────────────────────────── */
+    .tab-bar {
+      padding: 0 12px;
+      background: #333;
+      border-bottom: 1px solid #4a4a4a;
+      display: flex;
+      gap: 0;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      padding: 6px 16px;
+      background: transparent;
+      color: #aaa;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .tab-btn:hover { color: #ddd; }
+    .tab-btn.active { color: #fff; border-bottom-color: #4a90d9; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Fastener table ─────────────────────────────────── */
+    .fastener-group-header {
+      padding: 6px 8px;
+      background: #3a3a3a;
       font-weight: 600;
-    }
-    button.export-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
-
-    .export-spacer { flex: 1; }
-
-    /* Status text */
-    #status-text {
+      color: #c4b5e0;
       font-size: 11px;
-      color: var(--text-dim);
-      font-style: italic;
-      min-width: 120px;
-      text-align: right;
+      margin-top: 10px;
+      border-radius: 3px 3px 0 0;
     }
+    .fastener-total {
+      margin-top: 12px;
+      padding: 8px;
+      background: #3a3a3a;
+      border-radius: 3px;
+      font-size: 12px;
+      color: #bcdfff;
+    }
+
+    /* ── Weld table ─────────────────────────────────────── */
+    .weld-group-header {
+      padding: 6px 8px;
+      background: #3a3a3a;
+      font-weight: 600;
+      color: #d9a04a;
+      font-size: 11px;
+      margin-top: 10px;
+      border-radius: 3px 3px 0 0;
+    }
+
+    /* ── Template help ─────────────────────────────────── */
+    .template-help {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #555;
+      color: #ddd;
+      text-align: center;
+      line-height: 16px;
+      font-size: 10px;
+      cursor: help;
+    }
+
+    /* ── Stock summary ───────────────────────────────────── */
+    .section-title {
+      margin: 14px 0 4px;
+      font-size: 11px;
+      color: #bcdfff;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Bottom action bar ───────────────────────────────── */
+    .actions {
+      padding: 8px 12px;
+      border-top: 1px solid #4a4a4a;
+      background: #383838;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    button {
+      background: #4a90d9;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    button:hover { filter: brightness(1.12); }
+    button.secondary { background: #555555; }
+    button.sm { padding: 3px 8px; font-size: 11px; }
+
+    #status { margin-left: auto; color: #bbbbbb; font-size: 11px; }
+
+    #loading { padding: 24px 12px; color: #bbbbbb; }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #2a2a2a; }
+    ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
   </style>
 </head>
 <body>
-<div id="app">
 
-  <!-- ===== Settings panel ===== -->
-  <div id="settings-panel">
-    <div class="settings-title">Settings</div>
+  <!-- ── Top bar: settings ──────────────────────────────── -->
+  <div class="top-bar">
+    <label for="naming-template">Template</label>
+    <input id="naming-template" type="text" value="{name}_{material}_{dims}">
+    <span class="template-help" title="Available tokens: {name}, {material}, {dims}, {type}, {qty}, {thickness}">?</span>
+    <button class="sm secondary" id="btn-save-template">Save</button>
+    <label for="unit-select">Units</label>
+    <select id="unit-select">
+      <option value="mm">mm</option>
+      <option value="inches">inches</option>
+    </select>
+    <div class="summary" id="summary-text">Waiting for cut list...</div>
+  </div>
 
-    <div class="settings-row">
-      <span class="settings-label">Naming Template:</span>
-      <input id="naming-template" class="settings-input" type="text"
-             value="{name}_{material}_{dims}"
-             title="Available tokens: {name} {material} {dims} {type} {qty}">
+  <!-- ── Template help panel (toggled by ? button) ──── -->
+  <div id="template-help-panel" style="display:none; padding:12px; background:#2a2a2a; border:1px solid #555; margin:0 12px 8px; border-radius:4px; font-size:12px; color:#ccc; line-height:1.6;">
+    <strong>Naming Template Tokens</strong><br>
+    <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{name}</code> &mdash; Body name<br>
+    <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{material}</code> &mdash; Material name<br>
+    <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{dims}</code> &mdash; Dimensions (L x W x H)<br>
+    <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{type}</code> &mdash; Classified type (e.g. HollowRectangularChannel)<br>
+    <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{qty}</code> &mdash; Quantity<br>
+    <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{thickness}</code> &mdash; Sheet metal or wall thickness<br><br>
+    <em>Example:</em> <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">{type}_{material}_{dims}</code>
+    &rarr; <code style="background:#3a3a3a;padding:1px 4px;border-radius:2px;">HollowRectangularChannel_Steel_50x100x2200</code><br><br>
+    Edit the template above and click <strong>Save</strong> to persist your changes.
+  </div>
 
-      <div class="settings-divider"></div>
+  <!-- ── Bulk-action bar ───────────────────────────────── -->
+  <div class="bulk-bar">
+    <button class="sm" id="btn-select-all">&#10003; Select All</button>
+    <button class="sm secondary" id="btn-deselect-all">&#10005; Deselect All</button>
+    <label for="type-filter-select">Filter type:</label>
+    <select id="type-filter-select">
+      <option value="">All Types</option>
+    </select>
+    <button class="sm secondary" id="btn-exclude-type">Exclude Type</button>
+    <button class="sm secondary" id="btn-include-type">Include Type</button>
+    <span class="search-wrap">
+      <input id="search-input" type="text" placeholder="&#128269; Search parts...">
+    </span>
+  </div>
 
-      <span class="settings-label">Units:</span>
-      <select id="unit-select" class="settings-input">
-        <option value="mm">mm</option>
-        <option value="inches">inches</option>
-      </select>
+  <!-- ── Tab bar ───────────────────────────────────────── -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="cutlist">Cut List</button>
+    <button class="tab-btn" data-tab="fasteners">Fasteners</button>
+    <button class="tab-btn" data-tab="welds">Welds</button>
+    <button class="tab-btn" data-tab="printed">3D Prints</button>
+    <button class="tab-btn" data-tab="sourced">Sourced</button>
+  </div>
 
-      <div class="settings-divider"></div>
+  <!-- ── Main content area ────────────────────────────── -->
+  <div class="main-content" id="main-content">
 
-      <label class="checkbox-group" title="Include bend lines in DXF export">
-        <input type="checkbox" id="opt-bend-lines" checked>
-        Bend Lines (DXF)
-      </label>
+    <!-- Cut List tab -->
+    <div id="tab-cutlist" class="tab-content active">
+      <div id="loading">Loading detected bodies...</div>
+      <div id="bodies-section" style="display:none;"></div>
 
-      <label class="checkbox-group" title="Include dimension annotations in DXF export">
-        <input type="checkbox" id="opt-dimensions" checked>
-        Dimensions (DXF)
-      </label>
+      <div id="stock-section" style="display:none;">
+        <div class="section-title">Linear Stock Required</div>
+        <table id="stock-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Material</th>
+              <th>Profile</th>
+              <th>Pieces</th>
+              <th>Total Length</th>
+            </tr>
+          </thead>
+          <tbody id="stock-body"></tbody>
+        </table>
+      </div>
 
-      <div id="summary-pill">
-        <strong id="summary-count">—</strong> parts &nbsp;|&nbsp;
-        <strong id="summary-review">—</strong> need review
+      <div id="dimension-section" style="display:none;">
+        <div class="section-title">Parts by Dimension</div>
+        <table id="dimension-table">
+          <thead>
+            <tr>
+              <th>Dimensions (mm)</th>
+              <th style="width:50px;">Qty</th>
+              <th style="width:80px;">Thickness</th>
+              <th>Body Names</th>
+            </tr>
+          </thead>
+          <tbody id="dimension-body"></tbody>
+        </table>
       </div>
     </div>
-  </div>
 
-  <!-- ===== Scrollable table area ===== -->
-  <div id="table-wrap">
-    <div id="empty-state">
-      <div class="spinner"></div>
-      <span>Waiting for Fusion 360 data…</span>
+    <!-- Fasteners tab -->
+    <div id="tab-fasteners" class="tab-content">
+      <div id="fastener-loading" style="padding:24px 12px;color:#bbb;">No fasteners detected.</div>
+      <div id="fastener-content" style="display:none;"></div>
+      <div id="fastener-summary" class="fastener-total" style="display:none;"></div>
     </div>
 
-    <table id="cutlist-table" style="display:none;">
-      <thead>
-        <tr>
-          <th class="col-include">✓</th>
-          <th class="col-name">Part Name</th>
-          <th class="col-type">Type</th>
-          <th class="col-confidence">Confidence</th>
-          <th class="col-material">Material</th>
-          <th class="col-dims">Dimensions</th>
-          <th class="col-qty">Qty</th>
-          <th class="col-filename">Export Filename Preview</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
+    <!-- Welds tab -->
+    <div id="tab-welds" class="tab-content">
+      <div id="weld-loading" style="padding:24px 12px;color:#bbb;">No weld assemblies detected.</div>
+      <div id="weld-content" style="display:none;"></div>
+    </div>
+
+    <!-- 3D Prints tab -->
+    <div id="tab-printed" class="tab-content">
+      <div id="printed-loading" style="padding:24px 12px;color:#bbb;">No 3D printed parts detected.</div>
+      <div id="printed-content" style="display:none;"></div>
+    </div>
+
+    <!-- Sourced tab -->
+    <div id="tab-sourced" class="tab-content">
+      <div id="sourced-loading" style="padding:24px 12px;color:#bbb;">No sourced components detected.</div>
+      <div id="sourced-content" style="display:none;"></div>
+    </div>
+
   </div>
 
-  <!-- ===== Export bar ===== -->
-  <div id="export-bar">
-    <span class="export-label">Export:</span>
-    <button class="export-btn primary" id="btn-export-csv">⬇ CSV</button>
-    <button class="export-btn"         id="btn-export-json">⬇ JSON</button>
-    <button class="export-btn"         id="btn-export-dxf">⬇ DXF</button>
-    <div class="export-spacer"></div>
-    <span id="status-text"></span>
+  <!-- ── Bottom export bar ─────────────────────────────── -->
+  <div class="actions">
+    <button id="btn-export-package">&#8659; Export CSV + DXFs</button>
+    <button id="btn-export-csv" class="secondary">CSV Only</button>
+    <button id="btn-export-json" class="secondary">JSON Only</button>
+    <button id="btn-export-fasteners" class="secondary" style="display:none;">Export Fasteners CSV</button>
+    <div id="status"></div>
   </div>
 
-</div>
+  <script>
+    /* ============================================================
+       Constants
+    ============================================================ */
+    var LINEAR_TYPES = {
+      HollowRectangularChannel: true,
+      HollowCircularCylinder: true,
+      SolidCylinder: true
+    };
 
-<script>
-/* ==========================================================================
-   State
-   ========================================================================== */
-const state = {
-  groups:    [],        // array of group dicts from Python
-  partTypes: [],        // ordered array of PartType string constants
-  collapsed: new Set(), // set of type-strings whose sections are collapsed
-  settings: {
-    naming_template: '{name}_{material}_{dims}',
-    unit: 'mm',
-    include_bend_lines: true,
-    include_dimensions: true,
-  },
-};
+    var TYPE_META = {
+      HollowRectangularChannel: { icon: '\u25ad', color: '#4a9fd9', label: 'Hollow Rect Channel' },
+      HollowCircularCylinder:   { icon: '\u25cb', color: '#d9a04a', label: 'Hollow Circ Cylinder' },
+      SolidCylinder:            { icon: '\u25cf', color: '#c47a20', label: 'Solid Cylinder' },
+      SolidBlock:               { icon: '\u25a0', color: '#7d7d7d', label: 'Solid Block' },
+      SheetMetal:               { icon: '\u25e7', color: '#4ad97a', label: 'Sheet Metal' },
+      '3DPrinted':              { icon: '\u2726', color: '#d94a9f', label: '3D Printed' },
+      Fastener:                 { icon: '\u2699', color: '#9a7bdf', label: 'Fastener' },
+      SourcedComponent:         { icon: '\u26d3', color: '#4a9fd9', label: 'Sourced' },
+      Unknown:                  { icon: '?',      color: '#666666', label: 'Unknown' }
+    };
 
-/* ==========================================================================
-   Fusion 360 messaging
-   ========================================================================== */
+    /* ============================================================
+       State
+    ============================================================ */
+    var state = {
+      groups: [],
+      partTypes: [],
+      weldAssemblies: [],
+      weldGroupIds: {},  // group_id → weld assembly info
+      includeFasteners: true,
+      activeTab: 'cutlist',
+      initReceived: false,
+      readyAttempts: 0,
+      searchQuery: '',
+      settings: {
+        naming_template: '{name}_{material}_{dims}',
+        unit: 'mm'
+      }
+    };
 
-/**
- * Receive data from Python.
- * Python calls:  palette.sendInfoToHTML(action, jsonString)
- * JS receives:   window.fusionJavaScriptHandler.handle(action, jsonString)
- */
-window.fusionJavaScriptHandler = {
-  handle(action, data) {
-    try {
-      if (action === 'initData') {
-        const msg = JSON.parse(data);
-        state.groups    = msg.groups    || [];
-        state.partTypes = msg.part_types || [];
+    /* ============================================================
+       Fusion bridge
+    ============================================================ */
+    window.fusionJavaScriptHandler = {
+      handle: function(action, data) {
+        try {
+          if (action === 'initData') {
+            applyInitData(JSON.parse(data || '{}'));
+          }
+        } catch (err) {
+          console.error('SmartCutList palette error', err);
+        }
+        return '';
+      }
+    };
+
+    function sendToPython(action, payload) {
+      if (typeof adsk !== 'undefined' && adsk && typeof adsk.fusionSendData === 'function') {
+        adsk.fusionSendData(action, JSON.stringify(payload || {}));
+      }
+    }
+
+    function requestInitData() {
+      if (state.initReceived) { return; }
+      state.readyAttempts += 1;
+      sendToPython('htmlReady', { attempt: state.readyAttempts });
+      if (!state.initReceived && state.readyAttempts < 20) {
+        window.setTimeout(requestInitData, 500);
+      }
+    }
+
+    function applyInitData(msg) {
+      state.initReceived = true;
+      state.groups = msg.groups || [];
+      state.partTypes = msg.part_types || [];
+      state.weldAssemblies = msg.weld_assemblies || [];
+      // Build reverse lookup: group_id → weld info
+      state.weldGroupIds = {};
+      for (var w = 0; w < state.weldAssemblies.length; w++) {
+        var weld = state.weldAssemblies[w];
+        var wIds = weld.group_ids || [];
+        for (var wi = 0; wi < wIds.length; wi++) {
+          state.weldGroupIds[wIds[wi]] = weld;
+        }
+      }
+      if (msg.include_fasteners !== undefined) { state.includeFasteners = msg.include_fasteners; }
+      if (msg.settings) {
+        if (msg.settings.naming_template) { state.settings.naming_template = msg.settings.naming_template; }
+        if (msg.settings.unit)            { state.settings.unit = msg.settings.unit; }
+      }
+      applySettingsToInputs();
+      populateTypeFilterDropdown();
+      renderAll();
+    }
+
+    /* ============================================================
+       Utilities
+    ============================================================ */
+    function escapeHtml(v) {
+      return String(v || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function sanitiseFilename(v) {
+      return String(v || '').replace(/[^\w\-.]/g, '_');
+    }
+
+    function applySettingsToInputs() {
+      document.getElementById('naming-template').value = state.settings.naming_template;
+      document.getElementById('unit-select').value = state.settings.unit;
+    }
+
+    function syncSettingsFromInputs() {
+      state.settings.naming_template = document.getElementById('naming-template').value;
+      state.settings.unit = document.getElementById('unit-select').value;
+    }
+
+    function findGroup(id) {
+      for (var i = 0; i < state.groups.length; i++) {
+        if (state.groups[i].group_id === id) { return state.groups[i]; }
+      }
+      return null;
+    }
+
+    function typeMeta(type) {
+      return TYPE_META[type] || TYPE_META['Unknown'];
+    }
+
+    /* ============================================================
+       Dimension formatting
+    ============================================================ */
+    function toUnit(mm) {
+      return state.settings.unit === 'inches' ? mm / 25.4 : mm;
+    }
+
+    function unitLabel() {
+      return state.settings.unit === 'inches' ? 'in' : 'mm';
+    }
+
+    function fmt(mm) {
+      return toUnit(mm).toFixed(1);
+    }
+
+    function formatDims(group) {
+      var dims = group.dimensions_mm;
+      if (!dims || dims.length < 3) { return '-'; }
+      // dims = [small, mid, large] sorted ascending
+      var small = Number(dims[0] || 0);
+      var mid   = Number(dims[1] || 0);
+      var large = Number(dims[2] || 0);
+      var ul    = unitLabel();
+      var t     = group.estimated_wall_thickness_mm || group.sheet_metal_thickness_mm;
+      var type  = group.classified_type;
+
+      if (type === 'HollowRectangularChannel') {
+        // W × H × T × L  (cross-section width × height × wall thickness × cut length)
+        if (t) {
+          return fmt(mid) + ' \u00d7 ' + fmt(small) + ' \u00d7 ' + fmt(t) + ' \u00d7 ' + fmt(large) + ' ' + ul;
+        }
+        return fmt(mid) + ' \u00d7 ' + fmt(small) + ' \u00d7 ' + fmt(large) + ' ' + ul;
+      }
+
+      if (type === 'HollowCircularCylinder') {
+        // OD × T × L  (outer diameter × wall thickness × length)
+        // Cross-section is circular: OD ≈ mid (or large if not elongated enough)
+        if (t) {
+          return fmt(mid) + ' OD \u00d7 ' + fmt(t) + 'T \u00d7 ' + fmt(large) + ' ' + ul;
+        }
+        return fmt(mid) + ' OD \u00d7 ' + fmt(large) + ' ' + ul;
+      }
+
+      if (type === 'SolidCylinder') {
+        // D × L
+        return fmt(mid) + ' D \u00d7 ' + fmt(large) + ' ' + ul;
+      }
+
+      if (type === 'SheetMetal') {
+        var th = group.sheet_metal_thickness_mm || t;
+        if (th) {
+          return fmt(large) + ' \u00d7 ' + fmt(mid) + ' \u00d7 ' + fmt(th) + 't ' + ul;
+        }
+        return fmt(large) + ' \u00d7 ' + fmt(mid) + ' ' + ul;
+      }
+
+      if (type === '3DPrinted' || type === 'SolidBlock' || type === 'Unknown') {
+        // L × W × H — raw material bounding box
+        var prefix = type === 'SolidBlock' ? 'Raw: ' : '';
+        return prefix + fmt(large) + ' \u00d7 ' + fmt(mid) + ' \u00d7 ' + fmt(small) + ' ' + ul;
+      }
+
+      // Default: L × W × H
+      return fmt(large) + ' \u00d7 ' + fmt(mid) + ' \u00d7 ' + fmt(small) + ' ' + ul;
+    }
+
+    function formatLength(mm) {
+      return fmt(mm) + ' ' + unitLabel();
+    }
+
+    function profileLabel(group) {
+      var dims = group.dimensions_mm || [];
+      if (dims.length < 3) { return 'Unknown'; }
+      var type = group.classified_type;
+      if (type === 'HollowCircularCylinder' || type === 'SolidCylinder') {
+        return fmt(dims[1]) + ' dia';
+      }
+      return fmt(dims[1]) + ' \u00d7 ' + fmt(dims[0]);
+    }
+
+    /* ============================================================
+       Filename builder
+    ============================================================ */
+    function buildFilename(group) {
+      var dims = group.dimensions_mm || [];
+      var dimsText = 'unknown';
+      var t = group.sheet_metal_thickness_mm || group.estimated_wall_thickness_mm;
+      var tText = t ? fmt(t) : 'unknown';
+
+      if (dims.length >= 3) {
+        dimsText = fmt(dims[2]) + 'x' + fmt(dims[1]) + 'x' + fmt(dims[0]);
+      }
+
+      if (group.classified_type === 'SheetMetal') {
+        return sanitiseFilename(group.display_name) + '_' +
+               sanitiseFilename(group.material_name) + '_' +
+               sanitiseFilename(tText);
+      }
+
+      return state.settings.naming_template
+        .replace('{name}',      sanitiseFilename(group.display_name))
+        .replace('{material}',  sanitiseFilename(group.material_name))
+        .replace('{dims}',      dimsText)
+        .replace('{type}',      sanitiseFilename(group.classified_type))
+        .replace('{qty}',       String(group.quantity || 1))
+        .replace('{thickness}', sanitiseFilename(tText));
+    }
+
+    /* ============================================================
+       Summary bar
+    ============================================================ */
+    function updateSummary() {
+      var included = 0, totalBodies = 0, smIncluded = 0, smConfigured = 0;
+      var fastenerPieces = 0, printedPieces = 0, sourcedPieces = 0;
+      for (var i = 0; i < state.groups.length; i++) {
+        var g = state.groups[i];
+        if (!g.include) { continue; }
+        included++;
+        totalBodies += (g.quantity || 1);
+        if (g.classified_type === 'SheetMetal') {
+          smIncluded++;
+          if (g.sheet_metal_configured) { smConfigured++; }
+        }
+        if (g.classified_type === 'Fastener') {
+          fastenerPieces += (g.quantity || 1);
+        }
+        if (g.classified_type === '3DPrinted') {
+          printedPieces += (g.quantity || 1);
+        }
+        if (g.classified_type === 'SourcedComponent') {
+          sourcedPieces += (g.quantity || 1);
+        }
+      }
+      var weldCount = (state.weldAssemblies || []).length;
+      var parts = [included + ' groups (' + totalBodies + ' bodies)'];
+      if (fastenerPieces > 0) { parts.push(fastenerPieces + ' fasteners'); }
+      if (weldCount > 0) { parts.push(weldCount + ' welds'); }
+      if (printedPieces > 0) { parts.push(printedPieces + ' 3D prints'); }
+      if (sourcedPieces > 0) { parts.push(sourcedPieces + ' sourced'); }
+      parts.push('sheet metal ' + smConfigured + '/' + smIncluded);
+      document.getElementById('summary-text').textContent = parts.join(' \u2022 ');
+    }
+
+    /* ============================================================
+       Type-filter dropdown
+    ============================================================ */
+    function populateTypeFilterDropdown() {
+      var sel = document.getElementById('type-filter-select');
+      sel.innerHTML = '<option value="">All Types</option>';
+      var types = state.partTypes.length ? state.partTypes : Object.keys(TYPE_META);
+      for (var i = 0; i < types.length; i++) {
+        var meta = typeMeta(types[i]);
+        var opt = document.createElement('option');
+        opt.value = types[i];
+        opt.textContent = meta.icon + ' ' + (meta.label || types[i]);
+        sel.appendChild(opt);
+      }
+    }
+
+    function appendTypeOptions(select, selectedType) {
+      var types = state.partTypes.length ? state.partTypes : Object.keys(TYPE_META);
+      for (var i = 0; i < types.length; i++) {
+        var meta = typeMeta(types[i]);
+        var opt = document.createElement('option');
+        opt.value = types[i];
+        opt.textContent = meta.icon + ' ' + (meta.label || types[i]);
+        opt.selected = types[i] === selectedType;
+        select.appendChild(opt);
+      }
+    }
+
+    /* ============================================================
+       Filtering helpers
+    ============================================================ */
+    function groupMatchesSearch(group) {
+      var q = state.searchQuery.toLowerCase();
+      if (!q) { return true; }
+      var fields = [
+        group.display_name, group.component_name,
+        group.component_path, group.material_name,
+        group.classified_type
+      ];
+      for (var i = 0; i < fields.length; i++) {
+        if ((fields[i] || '').toLowerCase().indexOf(q) !== -1) { return true; }
+      }
+      return false;
+    }
+
+    function visibleGroups() {
+      return state.groups.filter(function(g) {
+        // Exclude fasteners, 3D prints, and sourced from cut list — they have their own tabs
+        if (g.classified_type === 'Fastener') { return false; }
+        if (g.classified_type === '3DPrinted') { return false; }
+        if (g.classified_type === 'SourcedComponent') { return false; }
+        return groupMatchesSearch(g);
+      });
+    }
+
+    function fastenerGroups() {
+      return state.groups.filter(function(g) {
+        return g.classified_type === 'Fastener' && groupMatchesSearch(g);
+      });
+    }
+
+    function printedGroups() {
+      return state.groups.filter(function(g) {
+        return g.classified_type === '3DPrinted' && groupMatchesSearch(g);
+      });
+    }
+
+    function sourcedGroups() {
+      return state.groups.filter(function(g) {
+        return g.classified_type === 'SourcedComponent' && groupMatchesSearch(g);
+      });
+    }
+
+    /* ============================================================
+       Main content rendering (accordion by component)
+    ============================================================ */
+    function renderMainContent() {
+      var loading  = document.getElementById('loading');
+      var section  = document.getElementById('bodies-section');
+
+      syncSettingsFromInputs();
+      updateSummary();
+
+      var groups = visibleGroups();
+
+      if (!groups.length) {
+        loading.style.display  = 'block';
+        loading.textContent    = state.groups.length ? 'No parts match the current filter.' : 'No bodies detected.';
+        section.style.display  = 'none';
+        return;
+      }
+
+      loading.style.display = 'none';
+      section.style.display = 'block';
+      section.innerHTML = '';
+
+      // Group by component_path for accordion sections
+      var pathOrder = [];
+      var pathGroups = {};
+      for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        var path = g.component_path || '';
+        if (!pathGroups[path]) {
+          pathOrder.push(path);
+          pathGroups[path] = [];
+        }
+        pathGroups[path].push(g);
+      }
+
+      for (var p = 0; p < pathOrder.length; p++) {
+        var path = pathOrder[p];
+        var sectionGroups = pathGroups[path];
+        section.appendChild(buildComponentSection(path, sectionGroups));
+      }
+    }
+
+    function buildComponentSection(path, sectionGroups) {
+      var wrap = document.createElement('div');
+      wrap.className = 'comp-section';
+      wrap.setAttribute('data-path', path);
+
+      var header = document.createElement('div');
+      header.className = 'comp-header';
+
+      var toggle = document.createElement('span');
+      toggle.className = 'comp-toggle';
+      toggle.textContent = '\u25bc';
+
+      var title = document.createElement('span');
+      title.className = 'comp-title';
+      // Show path segments separated by arrows
+      title.textContent = path ? path.replace(/\//g, ' \u203a ') : 'Top Level';
+
+      var count = document.createElement('span');
+      count.className = 'comp-count';
+      count.textContent = sectionGroups.length + ' group' + (sectionGroups.length !== 1 ? 's' : '');
+
+      header.appendChild(toggle);
+      header.appendChild(title);
+      header.appendChild(count);
+      wrap.appendChild(header);
+
+      var body = document.createElement('div');
+      body.className = 'comp-body';
+      var tbl = buildGroupTable(sectionGroups);
+      body.appendChild(tbl);
+      wrap.appendChild(body);
+
+      header.addEventListener('click', function() {
+        var collapsed = body.classList.contains('collapsed');
+        body.classList.toggle('collapsed', !collapsed);
+        toggle.textContent = collapsed ? '\u25bc' : '\u25b6';
+      });
+
+      return wrap;
+    }
+
+    function buildGroupTable(groups) {
+      var tbl = document.createElement('table');
+      var thead = document.createElement('thead');
+      thead.innerHTML =
+        '<tr>' +
+        '<th style="width:28px;">Inc</th>' +
+        '<th>Body</th>' +
+        '<th>Type</th>' +
+        '<th>Material</th>' +
+        '<th>Dimensions</th>' +
+        '<th style="width:30px;">Qty</th>' +
+        '<th>Actions</th>' +
+        '<th>Filename</th>' +
+        '</tr>';
+      tbl.appendChild(thead);
+
+      var tbody = document.createElement('tbody');
+      for (var i = 0; i < groups.length; i++) {
+        tbody.appendChild(buildBodyRow(groups[i]));
+      }
+      tbl.appendChild(tbody);
+
+      // Event delegation
+      tbody.addEventListener('change', onTableChange);
+      tbody.addEventListener('click',  onTableClick);
+
+      return tbl;
+    }
+
+    function buildBodyRow(group) {
+      var tr = document.createElement('tr');
+      var meta = typeMeta(group.classified_type);
+
+      // CSS class for type colour strip and exclude styling
+      tr.className = 'type-' + group.classified_type + (group.include ? '' : ' excluded');
+      tr.setAttribute('data-group-id', group.group_id);
+
+      // Include checkbox
+      var tdInc = document.createElement('td');
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = !!group.include;
+      chk.className = 'row-check';
+      chk.setAttribute('data-group-id', group.group_id);
+      tdInc.appendChild(chk);
+
+      // Body name + badge + weld indicator
+      var tdName = document.createElement('td');
+      var weldInfo = state.weldGroupIds[group.group_id];
+      var nameHtml = '<span class="type-badge" style="color:' + escapeHtml(meta.color) + '">' +
+                     escapeHtml(meta.icon) + '</span> ' +
+                     '<span>' + escapeHtml(group.display_name) + '</span>';
+      if (weldInfo) {
+        nameHtml += ' <span class="pill" style="background:#6b5b3a;color:#ffd080;font-size:9px;cursor:help;" ' +
+                    'title="Part of weld assembly: ' + escapeHtml(weldInfo.component_name) +
+                    ' (' + weldInfo.body_count + ' bodies)">\ud83d\udd17 Weld</span>';
+      }
+      if (group.quantity > 1) {
+        nameHtml += '<div class="muted">' + group.quantity + ' identical grouped</div>';
+      }
+      tdName.innerHTML = nameHtml;
+
+      // Type select
+      var tdType = document.createElement('td');
+      var sel = document.createElement('select');
+      sel.className = 'type-select';
+      sel.setAttribute('data-group-id', group.group_id);
+      appendTypeOptions(sel, group.classified_type);
+      tdType.appendChild(sel);
+
+      // Material input
+      var tdMat = document.createElement('td');
+      var matInput = document.createElement('input');
+      matInput.type = 'text';
+      matInput.value = group.material_name || '';
+      matInput.className = 'material-input';
+      matInput.setAttribute('data-group-id', group.group_id);
+      tdMat.appendChild(matInput);
+
+      // Dimensions with confidence tooltip
+      var tdDims = document.createElement('td');
+      tdDims.className = 'dims-text';
+      tdDims.textContent = formatDims(group);
+      if (group.classification_reason) {
+        var pct = Math.round((group.confidence || 0) * 100);
+        tdDims.title = 'Confidence: ' + pct + '%\nReason: ' + group.classification_reason;
+        tdDims.style.cursor = 'help';
+      }
+
+      // Qty
+      var tdQty = document.createElement('td');
+      tdQty.textContent = String(group.quantity || 1);
+
+      // Actions cell (sheet metal Setup button only for SheetMetal rows)
+      var tdActions = document.createElement('td');
+      if (group.classified_type === 'SheetMetal') {
+        var btn = document.createElement('button');
+        btn.className = 'configure-button' + (group.sheet_metal_configured ? ' done' : '');
+        btn.setAttribute('data-group-id', group.group_id);
+        btn.textContent = group.sheet_metal_configured ? '\u2714 Done' : 'Setup';
+        tdActions.appendChild(btn);
+      }
+
+      // Filename
+      var tdFile = document.createElement('td');
+      tdFile.className = 'filename';
+      tdFile.textContent = buildFilename(group);
+
+      tr.appendChild(tdInc);
+      tr.appendChild(tdName);
+      tr.appendChild(tdType);
+      tr.appendChild(tdMat);
+      tr.appendChild(tdDims);
+      tr.appendChild(tdQty);
+      tr.appendChild(tdActions);
+      tr.appendChild(tdFile);
+      return tr;
+    }
+
+    /* ============================================================
+       Table event handlers
+    ============================================================ */
+    function onTableChange(event) {
+      var target  = event.target;
+      var groupId = target.getAttribute('data-group-id');
+      var group   = findGroup(groupId);
+      if (!group) { return; }
+
+      if (target.className === 'row-check') {
+        group.include = target.checked;
+        sendToPython('toggle_include', { group_id: groupId, value: target.checked });
+        // Update row styling without full re-render
+        var row = target.closest('tr');
+        if (row) {
+          if (target.checked) { row.classList.remove('excluded'); }
+          else                { row.classList.add('excluded'); }
+        }
+        updateSummary();
+        renderStockSummary();
+
+      } else if (target.className === 'type-select') {
+        group.classified_type = target.value;
+        if (group.classified_type !== 'SheetMetal') {
+          group.sheet_metal_configured = false;
+        }
+        sendToPython('override_type', { group_id: groupId, value: target.value });
+        renderAll();
+
+      } else if (target.className === 'material-input') {
+        group.material_name = target.value;
+        sendToPython('override_material', { group_id: groupId, value: target.value });
         renderAll();
       }
-    } catch (err) {
-      console.error('[SmartCutList] fusionJavaScriptHandler error:', err);
     }
-    return '';   // return value available in Python as args.returnValue
-  },
-};
 
-/**
- * Send a message to Python.
- * Python receives it via HTMLEventHandler.notify():
- *   args.action = action
- *   args.data   = JSON.stringify(payload)
- */
-function sendToPython(action, payload) {
-  if (window.adsk && typeof adsk.fusionSendData === 'function') {
-    adsk.fusionSendData(action, JSON.stringify(payload));
-  } else {
-    // Running in a normal browser for development / testing
-    console.log('[SmartCutList → Python]', action, payload);
-  }
-}
+    function onTableClick(event) {
+      var target = event.target;
 
-/* ==========================================================================
-   Utility
-   ========================================================================== */
+      // Row highlight
+      var row = target;
+      while (row && row.tagName !== 'TR') { row = row.parentNode; }
+      if (row && row.getAttribute) {
+        var gid = row.getAttribute('data-group-id');
+        setActiveRow(gid);
+        if (gid) { sendToPython('highlight_group', { group_id: gid }); }
+      }
 
-function sanitiseFilename(s) {
-  return String(s || '').replace(/[^\w\-.]/g, '_');
-}
-
-function buildFilename(group) {
-  const { naming_template, unit } = state.settings;
-  const useInches = unit === 'inches';
-  const factor    = useInches ? 1 / 25.4 : 1.0;
-  const suffix    = useInches ? 'in' : 'mm';
-  const dims      = group.dimensions_mm;
-
-  let dimsStr = 'unknown';
-  if (dims && dims.length >= 3) {
-    dimsStr = dims.map(d => (d * factor).toFixed(1)).join('x') + suffix;
-  }
-
-  return naming_template
-    .replace('{name}',     sanitiseFilename(group.display_name))
-    .replace('{material}', sanitiseFilename(group.material_name))
-    .replace('{dims}',     dimsStr)
-    .replace('{type}',     sanitiseFilename(group.classified_type))
-    .replace('{qty}',      String(group.quantity));
-}
-
-function confColor(v) {
-  if (v >= 0.8) return 'var(--green)';
-  if (v >= 0.5) return 'var(--yellow)';
-  return 'var(--red)';
-}
-
-function formatDims(dims, settings) {
-  if (!dims || dims.length < 3) return '—';
-  const useInches = settings.unit === 'inches';
-  const factor = useInches ? 1 / 25.4 : 1.0;
-  const unit   = useInches ? 'in' : 'mm';
-  const [s, m, l] = dims;
-  return `${(l * factor).toFixed(1)} × ${(m * factor).toFixed(1)} × ${(s * factor).toFixed(1)} <span class="dims-unit">${unit}</span>`;
-}
-
-function currentSettings() {
-  return {
-    naming_template:   document.getElementById('naming-template').value,
-    unit:              document.getElementById('unit-select').value,
-    include_bend_lines: document.getElementById('opt-bend-lines').checked,
-    include_dimensions: document.getElementById('opt-dimensions').checked,
-  };
-}
-
-/* ==========================================================================
-   Rendering
-   ========================================================================== */
-
-function renderAll() {
-  syncSettingsFromInputs();
-  updateSummary();
-
-  const empty = document.getElementById('empty-state');
-  const table = document.getElementById('cutlist-table');
-
-  if (state.groups.length === 0) {
-    empty.style.display = 'flex';
-    table.style.display = 'none';
-    empty.innerHTML = '<span style="color:var(--text-dim)">No parts to review.</span>';
-    return;
-  }
-
-  empty.style.display = 'none';
-  table.style.display = 'table';
-
-  // Group rows by classified_type
-  const byType = {};
-  for (const g of state.groups) {
-    const t = g.classified_type;
-    if (!byType[t]) byType[t] = [];
-    byType[t].push(g);
-  }
-
-  const tbody = document.getElementById('table-body');
-  tbody.innerHTML = '';
-
-  for (const type of Object.keys(byType).sort()) {
-    const groupsForType = byType[type];
-    tbody.appendChild(buildSectionRow(type, groupsForType));
-    if (!state.collapsed.has(type)) {
-      for (const g of groupsForType) {
-        tbody.appendChild(buildDataRow(g));
+      // Configure sheet metal button
+      if (target.className && target.className.indexOf('configure-button') !== -1) {
+        var groupId = target.getAttribute('data-group-id');
+        document.getElementById('status').textContent = 'Waiting for face selection...';
+        sendToPython('configure_sheet_metal', { group_id: groupId });
+        window.setTimeout(function() { document.getElementById('status').textContent = ''; }, 2500);
       }
     }
-  }
-}
 
-function buildSectionRow(type, groups) {
-  const isCollapsed = state.collapsed.has(type);
-  const reviewCount = groups.filter(g => g.needs_review).length;
-  const totalQty    = groups.reduce((s, g) => s + g.quantity, 0);
-
-  const tr = document.createElement('tr');
-  tr.className = 'section-row' + (isCollapsed ? ' collapsed' : '');
-  tr.dataset.sectionType = type;
-
-  tr.innerHTML = `
-    <td colspan="8">
-      <span class="section-toggle">▾</span>
-      <strong>${escHtml(type)}</strong>
-      <span class="section-count">${groups.length} group${groups.length !== 1 ? 's' : ''} · ${totalQty} pc${totalQty !== 1 ? 's' : ''}</span>
-      ${reviewCount ? `<span class="section-review-badge">⚠ ${reviewCount} review</span>` : ''}
-    </td>`;
-
-  tr.addEventListener('click', () => {
-    if (state.collapsed.has(type)) state.collapsed.delete(type);
-    else state.collapsed.add(type);
-    renderAll();
-  });
-
-  return tr;
-}
-
-function buildDataRow(group) {
-  const tr = document.createElement('tr');
-  tr.className = 'data-row'
-    + (!group.include    ? ' excluded'    : '')
-    + (group.needs_review ? ' needs-review' : '');
-  tr.dataset.groupId = group.group_id;
-
-  const conf    = group.confidence;
-  const confPct = Math.round(conf * 100);
-  const color   = confColor(conf);
-  const dims    = formatDims(group.dimensions_mm, state.settings);
-  const fname   = buildFilename(group);
-
-  tr.innerHTML = `
-    <td class="col-include">
-      <input type="checkbox" class="row-check"
-             data-gid="${group.group_id}"
-             ${group.include ? 'checked' : ''}>
-    </td>
-    <td class="col-name">
-      <div class="part-name" title="${escHtml(group.display_name)}">${escHtml(group.display_name)}</div>
-      ${group.component_name ? `<div class="part-comp" title="${escHtml(group.component_name)}">${escHtml(group.component_name)}</div>` : ''}
-    </td>
-    <td class="col-type">
-      <select class="type-select${group.override_type ? ' overridden' : ''}"
-              data-gid="${group.group_id}">
-        ${state.partTypes.map(t =>
-          `<option value="${escHtml(t)}" ${t === group.classified_type ? 'selected' : ''}>${escHtml(t)}</option>`
-        ).join('')}
-      </select>
-    </td>
-    <td class="col-confidence">
-      <div class="conf-wrap">
-        <div class="conf-bar-track">
-          <div class="conf-bar-fill"
-               style="width:${confPct}%;background:${color};"></div>
-        </div>
-        <span class="conf-value">${conf.toFixed(2)}</span>
-      </div>
-    </td>
-    <td class="col-material">
-      <input type="text" class="material-input"
-             data-gid="${group.group_id}"
-             value="${escHtml(group.material_name)}"
-             placeholder="Material">
-    </td>
-    <td class="col-dims">
-      <div class="dims-text">${dims}</div>
-    </td>
-    <td class="col-qty">
-      <span class="qty-badge ${group.quantity > 1 ? 'many' : ''}">${group.quantity}</span>
-    </td>
-    <td class="col-filename">
-      <div class="filename-preview" title="${escHtml(fname)}">${escHtml(fname)}</div>
-    </td>`;
-
-  return tr;
-}
-
-function escHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/* Only refresh the filename preview column (fast path when settings change) */
-function updateFilenamePreviews() {
-  syncSettingsFromInputs();
-  document.querySelectorAll('.data-row').forEach(tr => {
-    const gid   = tr.dataset.groupId;
-    const group = state.groups.find(g => g.group_id === gid);
-    if (!group) return;
-    const cell = tr.querySelector('.filename-preview');
-    if (cell) {
-      const fname = buildFilename(group);
-      cell.textContent = fname;
-      cell.title       = fname;
+    function setActiveRow(groupId) {
+      var tables = document.querySelectorAll('#bodies-section tbody');
+      for (var t = 0; t < tables.length; t++) {
+        var rows = tables[t].getElementsByTagName('tr');
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          var isTarget   = r.getAttribute('data-group-id') === groupId;
+          var isExcluded = r.classList.contains('excluded');
+          r.classList.toggle('active-row', isTarget);
+          if (isTarget && !isExcluded) { r.classList.remove('excluded'); }
+        }
+      }
     }
-    const dimsCell = tr.querySelector('.dims-text');
-    if (dimsCell) {
-      dimsCell.innerHTML = formatDims(group.dimensions_mm, state.settings);
+
+    /* ============================================================
+       Stock summary
+    ============================================================ */
+    function computeLinearStockRows() {
+      var map = {}, rows = [];
+      for (var i = 0; i < state.groups.length; i++) {
+        var g = state.groups[i];
+        if (!g.include || !LINEAR_TYPES[g.classified_type]) { continue; }
+        var dims = g.dimensions_mm;
+        if (!dims || dims.length < 3) { continue; }
+        var length = Number(dims[2] || 0);
+        var key = [g.classified_type, g.material_name || 'Unknown', profileLabel(g)].join('|');
+        if (!map[key]) {
+          map[key] = { type: g.classified_type, material: g.material_name || 'Unknown',
+                       profile: profileLabel(g), piece_count: 0, total_length_mm: 0 };
+        }
+        map[key].piece_count += Number(g.quantity || 1);
+        map[key].total_length_mm += length * Number(g.quantity || 1);
+      }
+      for (var k in map) { if (map.hasOwnProperty(k)) { rows.push(map[k]); } }
+      rows.sort(function(a, b) {
+        var la = a.type + '|' + a.material, lb = b.type + '|' + b.material;
+        return la < lb ? -1 : la > lb ? 1 : 0;
+      });
+      return rows;
     }
-  });
-  updateSummary();
-}
 
-function updateSummary() {
-  const included     = state.groups.filter(g => g.include);
-  const needsReview  = state.groups.filter(g => g.needs_review);
-  document.getElementById('summary-count').textContent  = included.length;
-  document.getElementById('summary-review').textContent = needsReview.length;
-}
-
-function syncSettingsFromInputs() {
-  state.settings.naming_template   = document.getElementById('naming-template').value;
-  state.settings.unit               = document.getElementById('unit-select').value;
-  state.settings.include_bend_lines = document.getElementById('opt-bend-lines').checked;
-  state.settings.include_dimensions = document.getElementById('opt-dimensions').checked;
-}
-
-/* ==========================================================================
-   Event delegation — table interactions
-   ========================================================================== */
-
-document.getElementById('table-body').addEventListener('change', e => {
-  const el  = e.target;
-  const gid = el.dataset.gid;
-  if (!gid) return;
-  const group = state.groups.find(g => g.group_id === gid);
-  if (!group) return;
-
-  if (el.classList.contains('row-check')) {
-    group.include = el.checked;
-    const row = el.closest('tr');
-    row.classList.toggle('excluded', !el.checked);
-    updateSummary();
-    sendToPython('toggle_include', { group_id: gid, value: el.checked });
-  }
-
-  if (el.classList.contains('type-select')) {
-    const newType = el.value;
-    group.classified_type = newType;
-    group.override_type   = newType;
-    el.classList.add('overridden');
-    // Update filename preview for this row
-    const previewEl = el.closest('tr').querySelector('.filename-preview');
-    if (previewEl) {
-      const fname = buildFilename(group);
-      previewEl.textContent = fname;
-      previewEl.title       = fname;
+    function renderStockSummary() {
+      var rows    = computeLinearStockRows();
+      var section = document.getElementById('stock-section');
+      var tbody   = document.getElementById('stock-body');
+      tbody.innerHTML = '';
+      if (!rows.length) { section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + escapeHtml(r.type)     + '</td>' +
+          '<td>' + escapeHtml(r.material) + '</td>' +
+          '<td>' + escapeHtml(r.profile)  + '</td>' +
+          '<td>' + escapeHtml(String(r.piece_count)) + '</td>' +
+          '<td>' + escapeHtml(formatLength(r.total_length_mm)) + '</td>';
+        tbody.appendChild(tr);
+      }
     }
-    sendToPython('override_type', { group_id: gid, value: newType });
-  }
-});
 
-document.getElementById('table-body').addEventListener('change', e => {
-  /* Material input — separate handler to avoid select interfering */
-  const el = e.target;
-  if (!el.classList.contains('material-input')) return;
-  const gid = el.dataset.gid;
-  const group = state.groups.find(g => g.group_id === gid);
-  if (!group) return;
-  group.material_name    = el.value;
-  group.override_material = el.value;
-  const previewEl = el.closest('tr').querySelector('.filename-preview');
-  if (previewEl) {
-    const fname = buildFilename(group);
-    previewEl.textContent = fname;
-    previewEl.title       = fname;
-  }
-  sendToPython('override_material', { group_id: gid, value: el.value });
-});
+    /* ============================================================
+       Dimension summary
+    ============================================================ */
+    function computeDimensionSummaryRows() {
+      var map = {}, order = [];
+      var vGroups = visibleGroups();
+      for (var i = 0; i < vGroups.length; i++) {
+        var g = vGroups[i];
+        if (!g.include) { continue; }
+        var dims = g.dimensions_mm;
+        if (!dims || dims.length < 3) { continue; }
+        var dimStr = fmt(dims[2]) + ' x ' + fmt(dims[1]) + ' x ' + fmt(dims[0]);
+        var key = g.classified_type + '|' + dimStr;
+        if (!map[key]) {
+          map[key] = { type: g.classified_type, dimensions: dimStr, qty: 0, bodies: [], thickness: null };
+          order.push(key);
+        }
+        map[key].qty += (g.quantity || 1);
+        // Capture wall thickness from first body that has it (hollow parts)
+        if (!map[key].thickness && g.estimated_wall_thickness_mm) {
+          map[key].thickness = g.estimated_wall_thickness_mm;
+        }
+        var names = g.bodies || [g.display_name];
+        for (var n = 0; n < names.length; n++) { map[key].bodies.push(names[n]); }
+      }
+      var result = [];
+      for (var k = 0; k < order.length; k++) { result.push(map[order[k]]); }
+      result.sort(function(a, b) {
+        if (a.type !== b.type) return a.type < b.type ? -1 : 1;
+        return a.dimensions < b.dimensions ? -1 : a.dimensions > b.dimensions ? 1 : 0;
+      });
+      return result;
+    }
 
-/* ==========================================================================
-   Settings change → live filename preview refresh
-   ========================================================================== */
+    function renderDimensionSummary() {
+      var rows = computeDimensionSummaryRows();
+      var section = document.getElementById('dimension-section');
+      var tbody = document.getElementById('dimension-body');
+      tbody.innerHTML = '';
+      if (!rows.length) { section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      var hollowTypes = { HollowRectangularChannel: true, HollowCircularCylinder: true };
+      var currentType = '';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (r.type !== currentType) {
+          currentType = r.type;
+          var meta = TYPE_META[currentType] || TYPE_META.Unknown;
+          var hdr = document.createElement('tr');
+          hdr.innerHTML = '<td colspan="4" style="background:#1e1e1e;padding:8px 6px;border-bottom:2px solid ' + meta.color + ';"><strong>' + meta.icon + ' ' + meta.label + '</strong></td>';
+          tbody.appendChild(hdr);
+        }
+        var thicknessText = '-';
+        if (hollowTypes[r.type] && r.thickness) {
+          thicknessText = fmt(r.thickness) + ' mm';
+        }
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + escapeHtml(r.dimensions) + '</td>' +
+          '<td>' + r.qty + '</td>' +
+          '<td>' + thicknessText + '</td>' +
+          '<td>' + escapeHtml(r.bodies.join(', ')) + '</td>';
+        tbody.appendChild(tr);
+      }
+    }
 
-['naming-template', 'unit-select', 'opt-bend-lines', 'opt-dimensions'].forEach(id => {
-  document.getElementById(id).addEventListener('input',  updateFilenamePreviews);
-  document.getElementById(id).addEventListener('change', updateFilenamePreviews);
-});
+    /* ============================================================
+       Search filtering
+    ============================================================ */
+    document.getElementById('search-input').addEventListener('input', function() {
+      state.searchQuery = this.value;
+      renderMainContent();
+    });
 
-/* ==========================================================================
-   Export buttons
-   ========================================================================== */
+    /* ============================================================
+       Bulk actions
+    ============================================================ */
+    document.getElementById('btn-select-all').addEventListener('click', function() {
+      var ids = visibleGroups().map(function(g) { return g.group_id; });
+      ids.forEach(function(id) {
+        var g = findGroup(id);
+        if (g) { g.include = true; }
+      });
+      sendToPython('bulk_include', { group_ids: ids, value: true });
+      renderAll();
+    });
 
-function exportWith(action) {
-  syncSettingsFromInputs();
-  setStatus('Exporting…');
-  sendToPython(action, { settings: { ...state.settings } });
-  setTimeout(() => setStatus(''), 3000);
-}
+    document.getElementById('btn-deselect-all').addEventListener('click', function() {
+      var ids = visibleGroups().map(function(g) { return g.group_id; });
+      ids.forEach(function(id) {
+        var g = findGroup(id);
+        if (g) { g.include = false; }
+      });
+      sendToPython('bulk_include', { group_ids: ids, value: false });
+      renderAll();
+    });
 
-document.getElementById('btn-export-csv').addEventListener('click',  () => exportWith('export_csv'));
-document.getElementById('btn-export-json').addEventListener('click', () => exportWith('export_json'));
-document.getElementById('btn-export-dxf').addEventListener('click',  () => exportWith('export_dxf'));
+    document.getElementById('btn-exclude-type').addEventListener('click', function() {
+      var type = document.getElementById('type-filter-select').value;
+      if (!type) { return; }
+      state.groups.forEach(function(g) { if (g.classified_type === type) { g.include = false; } });
+      sendToPython('filter_by_type', { type: type, include: false });
+      renderAll();
+    });
 
-function setStatus(msg) {
-  document.getElementById('status-text').textContent = msg;
-}
+    document.getElementById('btn-include-type').addEventListener('click', function() {
+      var type = document.getElementById('type-filter-select').value;
+      if (!type) { return; }
+      state.groups.forEach(function(g) { if (g.classified_type === type) { g.include = true; } });
+      sendToPython('filter_by_type', { type: type, include: true });
+      renderAll();
+    });
 
-/* ==========================================================================
-   Bootstrap — notify Python that the page is ready
-   ========================================================================== */
+    /* ============================================================
+       Settings inputs
+    ============================================================ */
+    document.getElementById('naming-template').addEventListener('input', renderAll);
+    document.getElementById('unit-select').addEventListener('change', renderAll);
 
-document.addEventListener('DOMContentLoaded', () => {
-  syncSettingsFromInputs();
-  // Signal Python to push initial data
-  sendToPython('htmlReady', {});
-});
-</script>
+    /* ============================================================
+       Export buttons
+    ============================================================ */
+    function setStatus(msg, ms) {
+      var el = document.getElementById('status');
+      el.textContent = msg;
+      if (ms) { window.setTimeout(function() { el.textContent = ''; }, ms); }
+    }
+
+    document.getElementById('btn-export-package').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      setStatus('Exporting...', 0);
+      sendToPython('export_package', { settings: state.settings });
+      window.setTimeout(function() { setStatus(''); }, 2500);
+    });
+
+    document.getElementById('btn-export-csv').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      setStatus('Exporting CSV...', 0);
+      sendToPython('export_csv', { settings: state.settings });
+      window.setTimeout(function() { setStatus(''); }, 2000);
+    });
+
+    document.getElementById('btn-export-json').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      setStatus('Exporting JSON...', 0);
+      sendToPython('export_json', { settings: state.settings });
+      window.setTimeout(function() { setStatus(''); }, 2000);
+    });
+
+    document.getElementById('btn-export-fasteners').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      setStatus('Exporting fasteners...', 0);
+      sendToPython('export_fasteners', { settings: state.settings });
+      window.setTimeout(function() { setStatus(''); }, 2000);
+    });
+
+    document.querySelector('.template-help').addEventListener('click', function() {
+      var panel = document.getElementById('template-help-panel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('btn-save-template').addEventListener('click', function() {
+      var template = document.getElementById('naming-template').value;
+      sendToPython('save_template', { template: template });
+      setStatus('Template saved.', 0);
+      window.setTimeout(function() { setStatus(''); }, 2000);
+    });
+
+    /* ============================================================
+       Tab switching
+    ============================================================ */
+    var tabBtns = document.querySelectorAll('.tab-btn');
+    for (var ti = 0; ti < tabBtns.length; ti++) {
+      tabBtns[ti].addEventListener('click', (function(btn) {
+        return function() {
+          var tab = btn.getAttribute('data-tab');
+          state.activeTab = tab;
+          // Update button states
+          var allBtns = document.querySelectorAll('.tab-btn');
+          for (var j = 0; j < allBtns.length; j++) {
+            allBtns[j].classList.toggle('active', allBtns[j] === btn);
+          }
+          // Show/hide tab content
+          var cutlistTab = document.getElementById('tab-cutlist');
+          var fastenersTab = document.getElementById('tab-fasteners');
+          var weldsTab = document.getElementById('tab-welds');
+          var printedTab = document.getElementById('tab-printed');
+          var sourcedTab = document.getElementById('tab-sourced');
+          cutlistTab.classList.toggle('active', tab === 'cutlist');
+          fastenersTab.classList.toggle('active', tab === 'fasteners');
+          weldsTab.classList.toggle('active', tab === 'welds');
+          printedTab.classList.toggle('active', tab === 'printed');
+          sourcedTab.classList.toggle('active', tab === 'sourced');
+          // Toggle export buttons visibility
+          var pkgBtn = document.getElementById('btn-export-package');
+          var csvBtn = document.getElementById('btn-export-csv');
+          var jsonBtn = document.getElementById('btn-export-json');
+          var fastBtn = document.getElementById('btn-export-fasteners');
+          pkgBtn.style.display = tab === 'cutlist' ? '' : 'none';
+          csvBtn.style.display = tab === 'cutlist' ? '' : 'none';
+          jsonBtn.style.display = tab === 'cutlist' ? '' : 'none';
+          fastBtn.style.display = tab === 'fasteners' ? '' : 'none';
+        };
+      })(tabBtns[ti]));
+    }
+
+    /* ============================================================
+       Fastener name parsing
+    ============================================================ */
+    function parseFastenerName(name) {
+      var result = {
+        size: 'Unknown', length: '', headType: 'Unknown',
+        pitch: '', threadSpec: '', category: 'Fastener',
+        standard: '', description: name
+      };
+      if (!name) { return result; }
+
+      // Extract metric size and thread pitch: M10x1.5 → size=M10, pitch=1.5
+      var pitchMatch = name.match(/[Mm](\d{1,2}(?:\.\d)?)[xX](\d+(?:\.\d+)?)/);
+      if (pitchMatch) {
+        result.size = 'M' + pitchMatch[1];
+        result.pitch = pitchMatch[2];
+        result.threadSpec = result.size + 'x' + result.pitch;
+      } else {
+        var sizeMatch = name.match(/[Mm](\d{1,2}(?:\.\d)?)/);
+        if (sizeMatch) { result.size = 'M' + sizeMatch[1]; }
+        result.threadSpec = result.size !== 'Unknown' ? result.size : '';
+      }
+
+      // Extract length: M10x1.5x50 → 50 (skip pitch)
+      var lenMatch;
+      if (result.pitch) {
+        lenMatch = name.match(/[Mm]\d{1,2}(?:\.\d)?[xX]\d+(?:\.\d+)?[xX]\s*(\d+(?:\.\d+)?)/);
+      } else {
+        lenMatch = name.match(/[xX]\s*(\d+(?:\.\d+)?)/);
+      }
+      if (lenMatch) { result.length = lenMatch[1]; }
+
+      // Extract standard prefix (ISO, DIN, ANSI, etc.)
+      var stdMatch = name.match(/\b(ISO|DIN|ANSI|BS|JIS)\s*[\d-]*/i);
+      if (stdMatch) { result.standard = stdMatch[0]; }
+
+      // Comprehensive head type patterns — order matters (specific before generic)
+      var headPatterns = [
+        // Fusion 360 specific prefixed names
+        [/broached\s*hexagon\s*socket\s*head/i, 'Hex Socket Head'],
+        [/broached\s*hexagon/i, 'Hex Socket'],
+        [/hexagon\s*socket\s*head/i, 'Hex Socket Head'],
+        // Screws
+        [/socket\s*head\s*cap/i, 'Socket Head Cap'],
+        [/socket\s*head/i, 'Socket Head'],
+        [/hex\s*cap/i, 'Hex Cap'],
+        [/flat\s*head|countersunk|counter\s*sunk/i, 'Countersunk'],
+        [/pan\s*head/i, 'Pan Head'],
+        [/button\s*head/i, 'Button Head'],
+        [/round\s*head/i, 'Round Head'],
+        [/set\s*screw|grub/i, 'Set Screw'],
+        [/machine\s*screw/i, 'Machine Screw'],
+        [/self.?tapping/i, 'Self Tapping'],
+        // Bolts
+        [/hex\s*bolt/i, 'Hex Bolt'],
+        [/hex/i, 'Hex'],
+        // Nuts
+        [/lock\s*nut|nyloc/i, 'Lock Nut'],
+        [/flange\s*nut/i, 'Flange Nut'],
+        [/wing\s*nut/i, 'Wing Nut'],
+        [/acorn\s*nut|cap\s*nut/i, 'Acorn Nut'],
+        [/castle\s*nut|slotted\s*nut/i, 'Castle Nut'],
+        [/nut/i, 'Nut'],
+        // Washers
+        [/lock\s*washer|split\s*washer/i, 'Lock Washer'],
+        [/spring\s*washer/i, 'Spring Washer'],
+        [/flat\s*washer/i, 'Flat Washer'],
+        [/washer/i, 'Washer'],
+        // Other
+        [/rivet/i, 'Rivet'],
+        [/cotter\s*pin/i, 'Cotter Pin'],
+        [/dowel/i, 'Dowel Pin'],
+        [/pin/i, 'Pin'],
+        [/stud/i, 'Stud'],
+      ];
+      for (var i = 0; i < headPatterns.length; i++) {
+        if (headPatterns[i][0].test(name)) {
+          result.headType = headPatterns[i][1];
+          break;
+        }
+      }
+
+      // Determine category: Screw, Bolt, Nut, Washer, etc.
+      var categoryPatterns = [
+        [/cap\s*screw|machine\s*screw|set\s*screw|self.?tapping/i, 'Screw'],
+        [/screw/i, 'Screw'],
+        [/bolt/i, 'Bolt'],
+        [/nut/i, 'Nut'],
+        [/washer/i, 'Washer'],
+        [/rivet/i, 'Rivet'],
+        [/stud/i, 'Stud'],
+        [/pin|dowel|cotter/i, 'Pin'],
+      ];
+      for (var c = 0; c < categoryPatterns.length; c++) {
+        if (categoryPatterns[c][0].test(name)) {
+          result.category = categoryPatterns[c][1];
+          break;
+        }
+      }
+
+      // Build enhanced description
+      var dp = [];
+      if (result.standard) { dp.push(result.standard); }
+      if (result.headType !== 'Unknown') { dp.push(result.headType); }
+      if (result.category && result.category !== 'Fastener') { dp.push(result.category); }
+      dp.push(result.threadSpec || result.size);
+      if (result.length) { dp.push('x ' + result.length); }
+      if (dp.length) { result.description = dp.join(' '); }
+
+      return result;
+    }
+
+    /* ============================================================
+       Fastener grouping & rendering
+    ============================================================ */
+    function groupFastenersForProcurement(fGroups) {
+      var map = {};
+      var order = [];
+      for (var i = 0; i < fGroups.length; i++) {
+        var g = fGroups[i];
+        var nameToParse = g.display_name || g.component_path || g.component_name || '';
+        var parsed = parseFastenerName(nameToParse);
+        var dims = g.dimensions_mm || [];
+        var len = parsed.length || (dims.length >= 3 ? fmt(dims[2]) : '?');
+        var threadSpec = parsed.threadSpec || parsed.size;
+        var key = [threadSpec, parsed.headType, parsed.category || 'Fastener', g.material_name || 'Unknown', len].join('|');
+        if (!map[key]) {
+          map[key] = {
+            size: parsed.size,
+            threadSpec: threadSpec,
+            pitch: parsed.pitch || '',
+            headType: parsed.headType,
+            category: parsed.category || 'Fastener',
+            standard: parsed.standard || '',
+            material: g.material_name || 'Unknown',
+            length: len,
+            description: parsed.description,
+            quantity: 0,
+            unitCost: 0,
+            groupIds: [],
+          };
+          order.push(key);
+        }
+        map[key].quantity += (g.quantity || 1);
+        map[key].groupIds.push(g.group_id);
+      }
+      var result = [];
+      for (var k = 0; k < order.length; k++) { result.push(map[order[k]]); }
+      result.sort(function(a, b) {
+        var sa = a.threadSpec || a.size;
+        var sb = b.threadSpec || b.size;
+        if (sa !== sb) return sa < sb ? -1 : 1;
+        if (a.category !== b.category) return a.category < b.category ? -1 : 1;
+        if (a.headType !== b.headType) return a.headType < b.headType ? -1 : 1;
+        return 0;
+      });
+      return result;
+    }
+
+    function renderFastenerTab() {
+      var fGroups = fastenerGroups();
+      var loadingEl = document.getElementById('fastener-loading');
+      var contentEl = document.getElementById('fastener-content');
+      var summaryEl = document.getElementById('fastener-summary');
+
+      if (!fGroups.length) {
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = state.includeFasteners ? 'No fasteners detected in the selection.' : 'Fastener detection is disabled.';
+        contentEl.style.display = 'none';
+        summaryEl.style.display = 'none';
+        return;
+      }
+
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+      contentEl.innerHTML = '';
+
+      var procGroups = groupFastenersForProcurement(fGroups);
+
+      // Group by thread spec for section headers
+      var specOrder = [];
+      var specMap = {};
+      for (var i = 0; i < procGroups.length; i++) {
+        var pg = procGroups[i];
+        var specKey = pg.threadSpec || pg.size;
+        if (!specMap[specKey]) {
+          specMap[specKey] = [];
+          specOrder.push(specKey);
+        }
+        specMap[specKey].push(pg);
+      }
+
+      for (var s = 0; s < specOrder.length; s++) {
+        var spec = specOrder[s];
+        var items = specMap[spec];
+
+        var header = document.createElement('div');
+        header.className = 'fastener-group-header';
+        header.textContent = '\u2699 ' + spec + ' Fasteners (' + items.length + ' type' + (items.length !== 1 ? 's' : '') + ')';
+        contentEl.appendChild(header);
+
+        var tbl = document.createElement('table');
+        tbl.className = 'fastener-table';
+        tbl.innerHTML =
+          '<thead><tr>' +
+          '<th>Description</th>' +
+          '<th>Thread</th>' +
+          '<th>Category</th>' +
+          '<th>Head Type</th>' +
+          '<th>Length (' + unitLabel() + ')</th>' +
+          '<th>Material</th>' +
+          '<th style="width:50px;">Qty</th>' +
+          '</tr></thead>';
+        var tbody = document.createElement('tbody');
+
+        for (var r = 0; r < items.length; r++) {
+          var item = items[r];
+          var tr = document.createElement('tr');
+          tr.className = 'type-Fastener';
+          tr.innerHTML =
+            '<td>' + escapeHtml(item.description) + '</td>' +
+            '<td>' + escapeHtml(item.threadSpec || item.size) + '</td>' +
+            '<td>' + escapeHtml(item.category) + '</td>' +
+            '<td>' + escapeHtml(item.headType) + '</td>' +
+            '<td>' + escapeHtml(item.length) + '</td>' +
+            '<td>' + escapeHtml(item.material) + '</td>' +
+            '<td>' + item.quantity + '</td>';
+          tbody.appendChild(tr);
+        }
+
+        tbl.appendChild(tbody);
+        contentEl.appendChild(tbl);
+      }
+
+      // Summary
+      summaryEl.style.display = 'block';
+      var totalQty = 0;
+      for (var q = 0; q < procGroups.length; q++) { totalQty += procGroups[q].quantity; }
+      summaryEl.textContent = 'Total fasteners: ' + totalQty + ' pieces across ' + procGroups.length + ' types';
+    }
+
+    /* ============================================================
+       Weld assembly rendering
+    ============================================================ */
+    function renderWeldTab() {
+      var loadingEl = document.getElementById('weld-loading');
+      var contentEl = document.getElementById('weld-content');
+      var welds = state.weldAssemblies || [];
+
+      if (!welds.length) {
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = 'No weld assemblies detected.';
+        contentEl.style.display = 'none';
+        return;
+      }
+
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+      contentEl.innerHTML = '';
+
+      var header = document.createElement('div');
+      header.className = 'weld-group-header';
+      header.textContent = '\ud83d\udd17 Weld Assemblies (' + welds.length + ')';
+      contentEl.appendChild(header);
+
+      var tbl = document.createElement('table');
+      tbl.innerHTML =
+        '<thead><tr>' +
+        '<th>Component</th>' +
+        '<th style="width:80px;">Body Count</th>' +
+        '<th>Bodies Joined</th>' +
+        '</tr></thead>';
+      var tbody = document.createElement('tbody');
+
+      for (var i = 0; i < welds.length; i++) {
+        var w = welds[i];
+        var tr = document.createElement('tr');
+        var bodyNames = (w.body_names || []);
+        var bodiesHtml = '';
+        for (var b = 0; b < bodyNames.length; b++) {
+          if (b > 0) { bodiesHtml += ', '; }
+          bodiesHtml += escapeHtml(bodyNames[b]);
+        }
+        tr.innerHTML =
+          '<td>' + escapeHtml(w.component_name || w.component_path || '') + '</td>' +
+          '<td>' + (w.body_count || bodyNames.length) + '</td>' +
+          '<td>' + bodiesHtml + '</td>';
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', (function(weld) {
+          return function() {
+            sendToPython('highlight_weld', { group_ids: weld.group_ids || [] });
+          };
+        })(w));
+        tbody.appendChild(tr);
+      }
+
+      tbl.appendChild(tbody);
+      contentEl.appendChild(tbl);
+    }
+
+    /* ============================================================
+       3D Prints rendering
+    ============================================================ */
+    function renderPrintedTab() {
+      var pGroups = printedGroups();
+      var loadingEl = document.getElementById('printed-loading');
+      var contentEl = document.getElementById('printed-content');
+
+      if (!pGroups.length) {
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = 'No 3D printed parts detected.';
+        contentEl.style.display = 'none';
+        return;
+      }
+
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+      contentEl.innerHTML = '';
+
+      var header = document.createElement('div');
+      header.className = 'weld-group-header';
+      header.textContent = '\u2726 3D Printed Parts (' + pGroups.length + ')';
+      contentEl.appendChild(header);
+
+      var tbl = document.createElement('table');
+      tbl.innerHTML =
+        '<thead><tr>' +
+        '<th>Name</th>' +
+        '<th>Material</th>' +
+        '<th>Dimensions (' + unitLabel() + ')</th>' +
+        '<th style="width:50px;">Qty</th>' +
+        '</tr></thead>';
+      var tbody = document.createElement('tbody');
+
+      for (var i = 0; i < pGroups.length; i++) {
+        var g = pGroups[i];
+        var dims = g.dimensions_mm || [];
+        var dimsText = dims.length >= 3
+          ? fmt(dims[0]) + ' \u00d7 ' + fmt(dims[1]) + ' \u00d7 ' + fmt(dims[2])
+          : '-';
+        var tr = document.createElement('tr');
+        tr.className = 'type-3DPrinted';
+        tr.style.cursor = 'pointer';
+        tr.setAttribute('data-group-id', g.group_id);
+        tr.innerHTML =
+          '<td>' + escapeHtml(g.display_name) + '</td>' +
+          '<td>' + escapeHtml(g.material_name || 'Unknown') + '</td>' +
+          '<td>' + dimsText + '</td>' +
+          '<td>' + (g.quantity || 1) + '</td>';
+        tr.addEventListener('click', (function(groupId) {
+          return function() {
+            sendToPython('highlight_group', { group_id: groupId });
+          };
+        })(g.group_id));
+        tbody.appendChild(tr);
+      }
+
+      tbl.appendChild(tbody);
+      contentEl.appendChild(tbl);
+
+      var exportBtn = document.createElement('button');
+      exportBtn.className = 'export-btn';
+      exportBtn.style.marginTop = '12px';
+      exportBtn.textContent = 'Export STEP Files';
+      exportBtn.addEventListener('click', function() {
+        sendToPython('export_step', { settings: state.settings });
+      });
+      contentEl.appendChild(exportBtn);
+    }
+
+    /* ============================================================
+       Sourced tab
+    ============================================================ */
+    function renderSourcedTab() {
+      var sGroups = sourcedGroups();
+      var loadingEl = document.getElementById('sourced-loading');
+      var contentEl = document.getElementById('sourced-content');
+
+      if (!sGroups.length) {
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = 'No sourced components detected.';
+        contentEl.style.display = 'none';
+        return;
+      }
+
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+      contentEl.innerHTML = '';
+
+      var header = document.createElement('div');
+      header.className = 'weld-group-header';
+      header.textContent = '\u26d3 Sourced Components (' + sGroups.length + ')';
+      contentEl.appendChild(header);
+
+      var tbl = document.createElement('table');
+      tbl.innerHTML =
+        '<thead><tr>' +
+        '<th>Name</th>' +
+        '<th>Material</th>' +
+        '<th>Dimensions (' + unitLabel() + ')</th>' +
+        '<th style="width:50px;">Qty</th>' +
+        '</tr></thead>';
+      var tbody = document.createElement('tbody');
+
+      for (var i = 0; i < sGroups.length; i++) {
+        var g = sGroups[i];
+        var dims = g.dimensions_mm || [];
+        var dimsText = dims.length >= 3
+          ? fmt(dims[0]) + ' \u00d7 ' + fmt(dims[1]) + ' \u00d7 ' + fmt(dims[2])
+          : '-';
+        var tr = document.createElement('tr');
+        tr.className = 'type-SourcedComponent';
+        tr.style.cursor = 'pointer';
+        tr.setAttribute('data-group-id', g.group_id);
+        tr.innerHTML =
+          '<td>' + escapeHtml(g.display_name) + '</td>' +
+          '<td>' + escapeHtml(g.material_name || 'Unknown') + '</td>' +
+          '<td>' + dimsText + '</td>' +
+          '<td>' + (g.quantity || 1) + '</td>';
+        tr.addEventListener('click', (function(groupId) {
+          return function() {
+            sendToPython('highlight_group', { group_id: groupId });
+          };
+        })(g.group_id));
+        tbody.appendChild(tr);
+      }
+
+      tbl.appendChild(tbody);
+      contentEl.appendChild(tbl);
+
+      var exportBtn = document.createElement('button');
+      exportBtn.className = 'export-btn';
+      exportBtn.style.marginTop = '12px';
+      exportBtn.textContent = 'Export Sourced CSV';
+      exportBtn.addEventListener('click', function() {
+        sendToPython('export_sourced', { settings: state.settings });
+      });
+      contentEl.appendChild(exportBtn);
+    }
+
+    /* ============================================================
+       renderAll
+    ============================================================ */
+    function renderAll() {
+      syncSettingsFromInputs();
+      renderMainContent();
+      renderStockSummary();
+      renderDimensionSummary();
+      renderFastenerTab();
+      renderWeldTab();
+      renderPrintedTab();
+      renderSourcedTab();
+    }
+
+    /* ============================================================
+       Bootstrap
+    ============================================================ */
+    if (window.__SMARTCUTLIST_INIT__) {
+      applyInitData(window.__SMARTCUTLIST_INIT__);
+    }
+
+    requestInitData();
+
+    if (document.addEventListener) {
+      document.addEventListener('DOMContentLoaded', requestInitData);
+    }
+    window.onload = requestInitData;
+  </script>
 </body>
 </html>

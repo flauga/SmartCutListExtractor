@@ -15,6 +15,7 @@ Each output dict is the input dict extended with:
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 from typing import Optional
@@ -25,20 +26,100 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 
 class PartType:
-    SHEET_METAL        = 'SheetMetal'
-    RECTANGULAR_TUBE   = 'RectangularTube'
-    ROUND_TUBE         = 'RoundTube'
-    ALUMINIUM_EXTRUSION = 'AluminiumExtrusion'
-    ANGLE_SECTION      = 'AngleSection'
-    C_CHANNEL          = 'CChannel'
-    FLAT_BAR           = 'FlatBar'
-    MILLED_BLOCK       = 'MilledBlock'
-    ROUND_BAR          = 'RoundBar'
-    FASTENER           = 'Fastener'
-    UNKNOWN            = 'Unknown'
+    HOLLOW_RECTANGULAR_CHANNEL = 'HollowRectangularChannel'
+    HOLLOW_CIRCULAR_CYLINDER   = 'HollowCircularCylinder'
+    SOLID_CYLINDER             = 'SolidCylinder'
+    SOLID_BLOCK                = 'SolidBlock'
+    SHEET_METAL                = 'SheetMetal'
+    THREE_D_PRINTED            = '3DPrinted'
+    FASTENER                   = 'Fastener'
+    SOURCED_COMPONENT          = 'SourcedComponent'
+    UNKNOWN                    = 'Unknown'
 
 
 CONFIDENCE_THRESHOLD = 0.6
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Plastic material detection
+# ---------------------------------------------------------------------------
+
+_PLASTIC_MATERIALS = {
+    'pla', 'abs', 'petg', 'nylon', 'asa', 'tpu', 'resin',
+    'pc', 'peek', 'pei', 'ultem', 'polycarbonate', 'polyamide',
+    'polylactic', 'acrylonitrile', 'polypropylene', 'polyethylene',
+    'plastic', 'fdm', 'sla', 'sls',
+}
+
+
+def _is_plastic_material(features: dict) -> bool:
+    """Return True if the material name contains a known plastic keyword."""
+    name = (features.get('material_name') or '').lower()
+    return any(plastic in name for plastic in _PLASTIC_MATERIALS)
+
+
+# ---------------------------------------------------------------------------
+# Fastener detection
+# ---------------------------------------------------------------------------
+
+_FASTENER_NAME_KEYWORDS = {
+    'bolt', 'screw', 'nut', 'washer', 'rivet',
+    'hex cap', 'socket head', 'flat head', 'pan head', 'button head',
+    'lock nut', 'flange nut', 'wing nut', 'acorn nut',
+    'cap screw', 'set screw', 'machine screw', 'self tapping',
+}
+
+_FASTENER_NAME_RE = re.compile(
+    r'\b(?:' + '|'.join(re.escape(k) for k in _FASTENER_NAME_KEYWORDS) + r')\b'
+    r'|'
+    r'\b[Mm]\d{1,2}(?:\.\d)?\b',   # M2, M3, M4, M5, M6, M8, M10, M12, M16, M20
+    re.I,
+)
+
+_MAX_FASTENER_DIM_MM = 200.0  # fasteners are typically < 200mm
+
+
+def _is_fastener_name(features: dict) -> Optional[str]:
+    """Return the matched keyword if fastener name detected, else None.
+
+    Checks component_path in addition to component_name and body_name because
+    Fusion 360 content-library parts often have descriptive names in their
+    occurrence hierarchy (e.g. "M8 Socket Head Cap Screw:1") while the body
+    itself may be named generically ("Body" or "Solid1").
+    """
+    name = ' '.join(filter(None, [
+        features.get('component_path', ''),
+        features.get('component_name', ''),
+        features.get('body_name', ''),
+    ]))
+    m = _FASTENER_NAME_RE.search(name)
+    return m.group(0) if m else None
+
+
+def _is_fastener_geometry(features: dict) -> bool:
+    """Return True if geometry looks like a fastener (small, solid, cylindrical).
+
+    Thresholds are deliberately loose: nuts and washers are not elongated,
+    and many fasteners have mixed planar+cylindrical faces (hex heads, etc.).
+    """
+    dims = _sorted_dims(features)
+    if dims is None:
+        return False
+    small, mid, large = dims
+    if large > _MAX_FASTENER_DIM_MM:
+        return False
+    fr = _fill_ratio(features)
+    if fr is not None and fr < 0.35:
+        return False  # very hollow → not a solid fastener
+    cyl_ratio = _cylindrical_face_ratio(features)
+    if cyl_ratio < 0.15:
+        return False  # no significant cylindrical faces
+    # Allow non-elongated fasteners (nuts, washers, short bolts):
+    # only reject if it's flat/sheet-like (large/small > 10 with low cyl_ratio)
+    if mid > 0 and large / mid > 8.0 and cyl_ratio < 0.25:
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -48,35 +129,21 @@ CONFIDENCE_THRESHOLD = 0.6
 
 # Each entry: (compiled_regex, PartType constant, confidence)
 _NAME_KEYWORDS: list[tuple] = [
-    # Fasteners — check before generic geometry rules
-    (re.compile(r'\b(bolt|screw|nut|washer|rivet|pin|stud|anchor|cap.?head|hex.?head)\b', re.I),
-     PartType.FASTENER, 0.85),
+    # Hollow rectangular sections
+    (re.compile(r'\b(rhs|shs|rectangular.?tube|square.?tube|box.?section|hollow.?section|hollow.?rectangular)\b', re.I),
+     PartType.HOLLOW_RECTANGULAR_CHANNEL, 0.85),
 
-    # Aluminium extrusion profiles
-    (re.compile(r'\b(extrusion|extrud|8020|80.?20|t.?slot|v.?slot|aluminium.?profile|aluminum.?profile|alu.?profile)\b', re.I),
-     PartType.ALUMINIUM_EXTRUSION, 0.90),
+    # Hollow circular sections
+    (re.compile(r'\b(chs|round.?tube|circular.?tube|pipe|hollow.?bar|hollow.?circle|round.?pipe)\b', re.I),
+     PartType.HOLLOW_CIRCULAR_CYLINDER, 0.85),
 
-    # Angle / L-bracket
-    (re.compile(r'\b(angle|l.?bracket|l.?section|equal.?angle|unequal.?angle)\b', re.I),
-     PartType.ANGLE_SECTION, 0.80),
+    # Solid cylinders / round bars
+    (re.compile(r'\b(round.?bar|rod|shaft|axle|spindle|solid.?cylinder|solid.?round)\b', re.I),
+     PartType.SOLID_CYLINDER, 0.80),
 
-    # C / U channel
-    (re.compile(r'\b(c.?channel|u.?channel|channel|purlin|lip.?channel)\b', re.I),
-     PartType.C_CHANNEL, 0.80),
-
-    # Tube / hollow section
-    (re.compile(r'\b(rhs|shs|rectangular.?tube|square.?tube|box.?section|hollow.?section)\b', re.I),
-     PartType.RECTANGULAR_TUBE, 0.85),
-    (re.compile(r'\b(chs|round.?tube|circular.?tube|pipe|hollow.?bar)\b', re.I),
-     PartType.ROUND_TUBE, 0.85),
-
-    # Flat bar / plate
-    (re.compile(r'\b(flat.?bar|flat.?plate|flat.?stock|strap)\b', re.I),
-     PartType.FLAT_BAR, 0.80),
-
-    # Round bar / rod
-    (re.compile(r'\b(round.?bar|rod|shaft|axle|spindle)\b', re.I),
-     PartType.ROUND_BAR, 0.80),
+    # 3D printing indicators
+    (re.compile(r'\b(3d.?print|printed|fdm|sla|sls|fff|filament)\b', re.I),
+     PartType.THREE_D_PRINTED, 0.85),
 ]
 
 
@@ -95,7 +162,7 @@ def _dim(features: dict, key: str, index: int) -> Optional[float]:
         return None
 
 
-def _sorted_dims(features: dict) -> Optional[tuple[float, float, float]]:
+def _sorted_dims(features: dict) -> Optional[tuple]:
     """Return (small, mid, large) sorted bounding-box dimensions in mm, or None."""
     bb = features.get('bounding_box_mm')
     if not bb or len(bb) < 3:
@@ -137,17 +204,6 @@ def _fill_ratio(features: dict) -> Optional[float]:
     return features.get('bb_fill_ratio')
 
 
-def _aspect(features: dict) -> Optional[tuple[float, float, float]]:
-    """Return aspect ratios [L/W, L/H, W/H] as a tuple, or None."""
-    ar = features.get('aspect_ratios')
-    if ar and len(ar) == 3 and all(v is not None for v in ar):
-        try:
-            return tuple(float(v) for v in ar)
-        except (TypeError, ValueError):
-            return None
-    return None
-
-
 def _is_elongated(features: dict, ratio_threshold: float = 3.0) -> bool:
     """True when the largest dimension is at least ratio_threshold × the smallest."""
     dims = _sorted_dims(features)
@@ -157,11 +213,7 @@ def _is_elongated(features: dict, ratio_threshold: float = 3.0) -> bool:
     return large / small >= ratio_threshold if small > 0 else False
 
 
-def _wall_thickness_mm(features: dict) -> Optional[float]:
-    return features.get('estimated_wall_thickness_mm')
-
-
-def _is_hollow(features: dict, fill_threshold: float = 0.80) -> bool:
+def _is_hollow(features: dict, fill_threshold: float = 0.82) -> bool:
     """True when the fill ratio suggests a hollow interior."""
     fr = _fill_ratio(features)
     if fr is None:
@@ -182,6 +234,152 @@ def _rule_sheet_metal(features: dict):
     return None
 
 
+def _rule_3d_printed(features: dict):
+    """Plastic material detected → 3D printed part."""
+    if _is_plastic_material(features):
+        mat = features.get('material_name', '')
+        return PartType.THREE_D_PRINTED, 0.90, 'Plastic material detected: "{}"'.format(mat)
+    return None
+
+
+def _rule_content_library_fastener(features: dict):
+    """Content-library part flagged by isLibraryItem — definitive."""
+    if features.get('is_content_library_fastener'):
+        return PartType.FASTENER, 0.98, 'Content-library referenced component'
+    return None
+
+
+def _rule_sourced_component(features: dict):
+    """Externally referenced (linked) component — NOT a content-library fastener."""
+    if features.get('is_sourced_component'):
+        return PartType.SOURCED_COMPONENT, 0.95, 'Externally referenced component'
+    return None
+
+
+def _rule_fastener(features: dict):
+    """Detect fasteners by name keywords, optionally reinforced by geometry."""
+    kw = _is_fastener_name(features)
+    if not kw:
+        return None
+    geo = _is_fastener_geometry(features)
+    if geo:
+        return PartType.FASTENER, 0.92, 'Fastener name "{}" + geometry match'.format(kw)
+    return PartType.FASTENER, 0.85, 'Fastener name keyword: "{}"'.format(kw)
+
+
+def _rule_hollow_circular_cylinder(features: dict):
+    """Hollow cylinder: cylindrical faces + hollow fill ratio + elongated."""
+    if not _has_cylindrical_face(features):
+        return None
+    if not _is_elongated(features, ratio_threshold=2.0):
+        return None
+    if not _is_hollow(features, fill_threshold=0.82):
+        return None
+    dims = _sorted_dims(features)
+    if dims is None:
+        return None
+    small, mid, _ = dims
+    # Roughly circular cross-section
+    if mid > 0 and small / mid < 0.70:
+        return None
+    # Predominantly planar faces → rectangular section, not circular
+    # Use 0.70 threshold to allow holes in circular tubes (holes add planar faces)
+    planar_ratio = _planar_face_ratio(features)
+    if planar_ratio > 0.70:
+        return None
+    cyl_ratio = _cylindrical_face_ratio(features)
+    confidence = 0.82 if cyl_ratio >= 0.40 else 0.67
+    return PartType.HOLLOW_CIRCULAR_CYLINDER, confidence, 'Hollow elongated cylinder'
+
+
+def _rule_solid_cylinder(features: dict):
+    """Solid cylinder: high cylindrical face ratio + elongated + solid fill."""
+    if not _is_elongated(features, ratio_threshold=2.0):
+        return None
+    cyl_ratio = _cylindrical_face_ratio(features)
+    if cyl_ratio < 0.40:
+        return None
+    fr = _fill_ratio(features)
+    if fr is not None and fr < 0.70:
+        return None  # likely hollow — caught by hollow rule above
+    dims = _sorted_dims(features)
+    if dims is None:
+        return None
+    small, mid, _ = dims
+    # Cross-section should be roughly circular (small ≈ mid)
+    if mid > 0 and small / mid < 0.70:
+        return None
+    confidence = 0.78 if (fr is not None and fr >= 0.85) else 0.65
+    return PartType.SOLID_CYLINDER, confidence, 'Solid elongated cylinder'
+
+
+def _rule_hollow_rectangular_channel(features: dict):
+    """
+    Hollow rectangular/square section:
+    - Predominantly planar faces (small proportion of cylindrical faces
+      from holes is tolerated)
+    - Elongated
+    - Hollow fill ratio
+    """
+    cyl_ratio = _cylindrical_face_ratio(features)
+    if cyl_ratio >= 0.40:
+        return None
+    if not _is_elongated(features, ratio_threshold=1.5):
+        return None
+    if not _is_hollow(features, fill_threshold=0.82):
+        return None
+    planar_ratio = _planar_face_ratio(features)
+    if planar_ratio < 0.70:
+        return None
+    dims = _sorted_dims(features)
+    if dims is None:
+        return None
+    small, mid, _ = dims
+    # Cross-section must not be too thin (a very thin hollow flat object is unusual)
+    if mid > 0 and small / mid < 0.20:
+        return None
+    ccs = features.get('has_constant_cross_section')
+    confidence = 0.83 if ccs else 0.68
+    reason = 'Hollow rectangular section' + (' with constant cross-section' if ccs else '')
+    if cyl_ratio > 0:
+        confidence = max(confidence - 0.05, 0.55)
+        reason += ' (with holes)'
+    return PartType.HOLLOW_RECTANGULAR_CHANNEL, confidence, reason
+
+
+def _rule_solid_block(features: dict):
+    """
+    Catch-all for non-cylinder, non-hollow solids: milled blocks, flat bars,
+    angle sections, extrusions, and any other planar-face solid body.
+    """
+    # Skip if predominantly cylindrical (should have been caught above)
+    if _has_cylindrical_face(features) and _cylindrical_face_ratio(features) > 0.5:
+        return None
+    fr = _fill_ratio(features)
+    if fr is not None and fr < 0.70:
+        return None  # too hollow to be a solid block
+    planar_ratio = _planar_face_ratio(features)
+    if planar_ratio < 0.60:
+        return None  # mostly curved surfaces
+    ccs = features.get('has_constant_cross_section')
+    history = features.get('feature_history') or []
+    machining_ops = {'ExtrudeFeature', 'CutFeature', 'FilletFeature',
+                     'ChamferFeature', 'HoleFeature', 'PocketFeature'}
+    has_machining = any(f in machining_ops for f in history)
+    if ccs and fr is not None and fr >= 0.75:
+        confidence = 0.78
+    elif has_machining:
+        confidence = 0.72
+    elif fr is not None and fr >= 0.70:
+        confidence = 0.65
+    else:
+        confidence = 0.52
+    reason = 'Solid planar body (raw material / milled block)'
+    if has_machining:
+        reason += ' with machining features'
+    return PartType.SOLID_BLOCK, confidence, reason
+
+
 def _rule_name_keywords(features: dict):
     """Match component or body name against keyword groups."""
     name = ' '.join(filter(None, [
@@ -191,236 +389,8 @@ def _rule_name_keywords(features: dict):
     for pattern, part_type, confidence in _NAME_KEYWORDS:
         if pattern.search(name):
             match = pattern.search(name).group(0)
-            return part_type, confidence, f'Name keyword match: "{match}"'
+            return part_type, confidence, 'Name keyword match: "{}"'.format(match)
     return None
-
-
-def _rule_fastener_geometry(features: dict):
-    """
-    Small, roughly equidimensional part with cylindrical faces and threads.
-    Catches fasteners whose names are generic (e.g. "Body1").
-    """
-    dims = _sorted_dims(features)
-    if dims is None:
-        return None
-    small, mid, large = dims
-    # Must be small (< 50 mm longest dim) and not too elongated
-    if large > 60 or large / small > 5:
-        return None
-    cyl_ratio = _cylindrical_face_ratio(features)
-    if cyl_ratio >= 0.3:
-        # Check feature history for thread features
-        history = features.get('feature_history') or []
-        has_thread = any('thread' in f.lower() for f in history)
-        confidence = 0.70 if has_thread else 0.60
-        reason = 'Small cylindrical geometry' + (' with thread feature' if has_thread else '')
-        return PartType.FASTENER, confidence, reason
-    return None
-
-
-def _rule_round_bar(features: dict):
-    """Solid cylinder: high cylindrical face ratio + elongated + solid fill."""
-    if not _is_elongated(features, ratio_threshold=2.0):
-        return None
-    cyl_ratio = _cylindrical_face_ratio(features)
-    if cyl_ratio < 0.40:
-        return None
-    fr = _fill_ratio(features)
-    if fr is not None and fr < 0.70:
-        return None  # likely hollow → round tube
-    dims = _sorted_dims(features)
-    if dims is None:
-        return None
-    small, mid, _ = dims
-    # Cross-section should be roughly circular (small ≈ mid)
-    if mid > 0 and small / mid < 0.70:
-        return None
-    confidence = 0.75 if (fr is not None and fr >= 0.85) else 0.65
-    return PartType.ROUND_BAR, confidence, 'Solid elongated cylinder'
-
-
-def _rule_round_tube(features: dict):
-    """Hollow cylinder: cylindrical faces + hollow fill ratio + elongated."""
-    if not _has_cylindrical_face(features):
-        return None
-    if not _is_elongated(features, ratio_threshold=2.0):
-        return None
-    if not _is_hollow(features, fill_threshold=0.80):
-        return None
-    dims = _sorted_dims(features)
-    if dims is None:
-        return None
-    small, mid, _ = dims
-    # Roughly circular cross-section
-    if mid > 0 and small / mid < 0.70:
-        return None
-    cyl_ratio = _cylindrical_face_ratio(features)
-    confidence = 0.80 if cyl_ratio >= 0.40 else 0.65
-    return PartType.ROUND_TUBE, confidence, 'Hollow elongated cylinder'
-
-
-def _rule_rectangular_tube(features: dict):
-    """
-    Hollow rectangular/square section:
-    - All planar faces
-    - Elongated
-    - Hollow fill ratio
-    - Cross-section has 4 faces per end → ~8 planar faces total + 2 end caps
-    """
-    if _has_cylindrical_face(features):
-        return None
-    if not _is_elongated(features, ratio_threshold=2.5):
-        return None
-    if not _is_hollow(features, fill_threshold=0.80):
-        return None
-    planar_ratio = _planar_face_ratio(features)
-    if planar_ratio < 0.85:
-        return None
-    dims = _sorted_dims(features)
-    if dims is None:
-        return None
-    small, mid, large = dims
-    # Cross-section must not be too thin (that would be flat bar)
-    if mid > 0 and small / mid < 0.20:
-        return None
-    ccs = features.get('has_constant_cross_section')
-    confidence = 0.82 if ccs else 0.68
-    reason = 'Hollow rectangular section' + (' with constant cross-section' if ccs else '')
-    return PartType.RECTANGULAR_TUBE, confidence, reason
-
-
-def _rule_flat_bar(features: dict):
-    """
-    Thin, wide, elongated solid plate:
-    - High fill ratio (solid)
-    - All planar faces
-    - thickness << width << length  (small/mid < 0.30, large/mid > 2.5)
-    """
-    if _has_cylindrical_face(features):
-        return None
-    fr = _fill_ratio(features)
-    if fr is not None and fr < 0.80:
-        return None
-    planar_ratio = _planar_face_ratio(features)
-    if planar_ratio < 0.85:
-        return None
-    dims = _sorted_dims(features)
-    if dims is None:
-        return None
-    small, mid, large = dims
-    if mid <= 0:
-        return None
-    thin = small / mid < 0.30
-    long = large / mid > 2.5
-    if not (thin and long):
-        return None
-    return PartType.FLAT_BAR, 0.78, 'Thin flat plate with high fill ratio'
-
-
-def _rule_milled_block(features: dict):
-    """
-    Compact, solid, all-planar — a machined/milled block:
-    - High fill ratio
-    - Low elongation
-    - All planar faces
-    - Feature history contains extrude/cut/fillet/chamfer
-    """
-    if _has_cylindrical_face(features):
-        return None
-    fr = _fill_ratio(features)
-    if fr is not None and fr < 0.75:
-        return None
-    planar_ratio = _planar_face_ratio(features)
-    if planar_ratio < 0.75:
-        return None
-    dims = _sorted_dims(features)
-    if dims is None:
-        return None
-    small, mid, large = dims
-    if large / small > 8:
-        return None  # too elongated
-    history = features.get('feature_history') or []
-    machining_ops = {'ExtrudeFeature', 'CutFeature', 'FilletFeature',
-                     'ChamferFeature', 'HoleFeature', 'PocketFeature',
-                     'MillingFeature'}
-    has_machining = any(f in machining_ops for f in history)
-    confidence = 0.72 if has_machining else 0.60
-    reason = 'Compact solid block' + (' with machining features' if has_machining else '')
-    return PartType.MILLED_BLOCK, confidence, reason
-
-
-def _rule_angle_section(features: dict):
-    """
-    L-shaped cross-section:
-    - Elongated
-    - Roughly solid fill (solid metal in L shape)
-    - Two dominant perpendicular planar face groups
-    - Total face count in range typical for L-section (6–12)
-    """
-    if _has_cylindrical_face(features):
-        return None
-    if not _is_elongated(features, ratio_threshold=2.5):
-        return None
-    total_faces = features.get('total_faces') or 0
-    # An L-section extruded has 6 planar faces minimum; with chamfers more
-    if not (5 <= total_faces <= 20):
-        return None
-    ccs = features.get('has_constant_cross_section')
-    fr = _fill_ratio(features)
-    if fr is not None and fr < 0.40:
-        return None  # too hollow
-    planar_ratio = _planar_face_ratio(features)
-    if planar_ratio < 0.80:
-        return None
-    confidence = 0.68 if ccs else 0.55
-    reason = 'Elongated L-section geometry' + (' with constant cross-section' if ccs else '')
-    return PartType.ANGLE_SECTION, confidence, reason
-
-
-def _rule_c_channel(features: dict):
-    """
-    C/U-shaped cross-section:
-    - Elongated, hollow, planar faces
-    - More faces than a rectangular tube (open section adds extra faces)
-    - Fill ratio between tube and solid bar
-    """
-    if _has_cylindrical_face(features):
-        return None
-    if not _is_elongated(features, ratio_threshold=2.5):
-        return None
-    total_faces = features.get('total_faces') or 0
-    # C-channel: 3 webs + 2 flanges + 2 ends = 7 min; more with fillets
-    if not (6 <= total_faces <= 24):
-        return None
-    planar_ratio = _planar_face_ratio(features)
-    if planar_ratio < 0.80:
-        return None
-    ccs = features.get('has_constant_cross_section')
-    fr = _fill_ratio(features)
-    # C-channel fill ratio is typically between flat bar and tube
-    if fr is not None and (fr < 0.25 or fr > 0.88):
-        return None
-    confidence = 0.65 if ccs else 0.52
-    reason = 'Elongated open-section channel geometry' + (' with constant cross-section' if ccs else '')
-    return PartType.C_CHANNEL, confidence, reason
-
-
-def _rule_aluminium_extrusion_geometry(features: dict):
-    """
-    Complex constant cross-section extrusion not caught by simpler rules:
-    - Elongated
-    - Constant cross-section
-    - Higher face count (T-slot profiles are complex)
-    """
-    if not _is_elongated(features, ratio_threshold=2.5):
-        return None
-    ccs = features.get('has_constant_cross_section')
-    if not ccs:
-        return None
-    total_faces = features.get('total_faces') or 0
-    if total_faces < 12:
-        return None  # simple enough that another rule should have matched
-    return PartType.ALUMINIUM_EXTRUSION, 0.62, 'Complex constant cross-section extrusion'
 
 
 def _rule_fallback(_features: dict):
@@ -428,19 +398,24 @@ def _rule_fallback(_features: dict):
     return PartType.UNKNOWN, 0.0, 'No rule matched'
 
 
-# Priority-ordered rule chain
+# Priority-ordered rule chain.
+# Sheet metal first (definitive Fusion API flag).
+# Content-library fastener second — the isLibraryItem flag is definitive and
+# must run before _rule_3d_printed so that nylon/plastic fasteners from the
+# content library are not misclassified as 3D-printed parts.
+# Name keywords run before geometry rules so explicitly named parts
+# (e.g. "RHS 100x50") are classified correctly even if geometry is ambiguous.
 _RULES = [
     _rule_sheet_metal,
+    _rule_content_library_fastener,
+    _rule_sourced_component,
+    _rule_3d_printed,
+    _rule_fastener,
     _rule_name_keywords,
-    _rule_fastener_geometry,
-    _rule_round_bar,
-    _rule_round_tube,
-    _rule_rectangular_tube,
-    _rule_flat_bar,
-    _rule_milled_block,
-    _rule_angle_section,
-    _rule_c_channel,
-    _rule_aluminium_extrusion_geometry,
+    _rule_hollow_circular_cylinder,
+    _rule_solid_cylinder,
+    _rule_hollow_rectangular_channel,
+    _rule_solid_block,
     _rule_fallback,
 ]
 
@@ -449,7 +424,7 @@ _RULES = [
 # Per-body classification
 # ---------------------------------------------------------------------------
 
-def _classify_one(features: dict) -> tuple[str, float, str]:
+def _classify_one(features: dict) -> tuple:
     """Run the rule chain and return the first match."""
     for rule in _RULES:
         result = rule(features)
@@ -463,7 +438,10 @@ def _classify_one(features: dict) -> tuple[str, float, str]:
 # Public API
 # ---------------------------------------------------------------------------
 
-def classify_bodies(features: list[dict]) -> list[dict]:
+def classify_bodies(
+    features: list,
+    confidence_threshold: float = CONFIDENCE_THRESHOLD,
+) -> list:
     """
     Classify a list of feature dicts produced by feature_extraction.extract_features().
 
@@ -492,7 +470,16 @@ def classify_bodies(features: list[dict]) -> list[dict]:
         out['classified_type']       = part_type
         out['confidence']            = round(confidence, 4)
         out['classification_reason'] = reason
-        out['needs_review']          = confidence < CONFIDENCE_THRESHOLD
+        out['needs_review']          = confidence < confidence_threshold
+        logger.info(
+            'Classification: part="%s" body="%s" type="%s" confidence=%.4f review=%s reason="%s"',
+            feat.get('component_name', ''),
+            feat.get('body_name', ''),
+            part_type,
+            out['confidence'],
+            out['needs_review'],
+            reason,
+        )
         results.append(out)
 
     return results

@@ -39,6 +39,11 @@ MIN_THICKNESS_MM: float = 0.01
 # bb_fill_ratio above this → body treated as solid for wall-thickness purposes
 SOLID_FILL_RATIO: float = 0.85
 
+# Timeline feature-history extraction is disabled for the cut-list workflow.
+# It adds noticeable overhead on larger parametric designs and is not required
+# for the current review/export pipeline.
+INCLUDE_FEATURE_HISTORY: bool = False
+
 # ---------------------------------------------------------------------------
 # Geometry-type name tables  (built once at module import)
 # ---------------------------------------------------------------------------
@@ -114,7 +119,7 @@ def extract_features(bodies: List[adsk.fusion.BRepBody]) -> List[Dict[str, Any]]
         return []
 
     # One-shot timeline scan: {entityToken: [featureTypeName, ...]}
-    feature_map = _build_feature_map()
+    feature_map = _build_feature_map() if INCLUDE_FEATURE_HISTORY else {}
 
     results: List[Dict[str, Any]] = []
     for body in bodies:
@@ -123,6 +128,41 @@ def extract_features(bodies: List[adsk.fusion.BRepBody]) -> List[Dict[str, Any]]
         except Exception:
             results.append({
                 'body_name':        _safe_attr(body, 'name', '<unknown>'),
+                'extraction_error': traceback.format_exc(),
+            })
+    return results
+
+
+def extract_features_with_context(body_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Like extract_features() but accepts the full item dicts from select_components
+    (each has 'entity', 'component_path', 'name', etc.) and copies component_path
+    into the extracted feature dict.
+
+    :param body_items: List of dicts with at least {'entity': BRepBody, 'component_path': str}
+    :returns:          List of property dicts with 'component_path' included.
+    """
+    if not body_items:
+        return []
+
+    feature_map = _build_feature_map() if INCLUDE_FEATURE_HISTORY else {}
+
+    results: List[Dict[str, Any]] = []
+    for item in body_items:
+        body = item.get('entity')
+        component_path = item.get('component_path', '')
+        try:
+            props = _extract_body_features(body, feature_map)
+            props['component_path'] = component_path
+            props['is_content_library_fastener'] = item.get('is_content_library_fastener', False)
+            props['is_sourced_component'] = item.get('is_sourced_component', False)
+            results.append(props)
+        except Exception:
+            results.append({
+                'body_name':        _safe_attr(body, 'name', '<unknown>') if body else '<unknown>',
+                'component_path':   component_path,
+                'is_content_library_fastener': item.get('is_content_library_fastener', False),
+                'is_sourced_component': item.get('is_sourced_component', False),
                 'extraction_error': traceback.format_exc(),
             })
     return results
@@ -144,6 +184,7 @@ def _extract_body_features(
     # ------------------------------------------------------------------
     props['component_name'] = _safe_attr(body.parentComponent, 'name')
     props['body_name']      = _safe_attr(body, 'name')
+    props['body_token']     = _safe_attr(body, 'entityToken')
 
     # ------------------------------------------------------------------
     # 3.  Material  (body → component → 'Unknown')
@@ -585,29 +626,38 @@ def _estimate_wall_thickness_mm(
         if len(planes) < 2:
             return None
 
-        min_bb   = min(bb_dims_mm) if bb_dims_mm else None
-        min_dist = math.inf
+        min_bb = min(bb_dims_mm) if bb_dims_mm else None
+        candidates = []  # list of (distance_mm, area_weight)
 
         for i in range(len(planes)):
-            ni, oi = planes[i]['n'], planes[i]['o']
+            ni, oi, ai = planes[i]['n'], planes[i]['o'], planes[i]['area']
             for j in range(i + 1, len(planes)):
-                nj, oj = planes[j]['n'], planes[j]['o']
+                nj, oj, aj = planes[j]['n'], planes[j]['o'], planes[j]['area']
                 if _dot3(ni, nj) > -PARALLEL_TOL:
                     continue           # not anti-parallel
                 # Perpendicular distance = |projection of (oj - oi) onto ni|
                 diff    = (oj[0] - oi[0], oj[1] - oi[1], oj[2] - oi[2])
                 dist_mm = abs(_dot3(ni, diff)) * CM_TO_MM
-                if dist_mm >= MIN_THICKNESS_MM:
-                    min_dist = min(min_dist, dist_mm)
+                if dist_mm < MIN_THICKNESS_MM:
+                    continue
+                # Reject distances that are the body's overall extent
+                if min_bb is not None and dist_mm >= min_bb * 0.4:
+                    continue
+                candidates.append((dist_mm, min(ai, aj)))
 
-        if min_dist == math.inf:
+        if not candidates:
             return None
 
-        # Reject if the separation equals the body's overall extent
-        if min_bb is not None and min_dist >= min_bb * 0.4:
-            return None
+        # Cluster by rounding to 0.5mm buckets, pick the bucket with the
+        # largest total face area.  This ensures the dominant wall thickness
+        # (large structural faces) wins over tiny chamfer/fillet distances.
+        buckets = {}  # rounded_dist → total_area
+        for dist, area in candidates:
+            bucket = round(dist * 2) / 2  # 0.5mm resolution
+            buckets[bucket] = buckets.get(bucket, 0.0) + area
 
-        return round(min_dist, 4)
+        best_dist = max(buckets, key=buckets.get)
+        return round(best_dist, 4)
 
     except Exception:
         return None
