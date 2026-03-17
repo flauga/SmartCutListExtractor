@@ -418,10 +418,101 @@ def build_weld_assemblies(
     return welds
 
 
+def build_weld_plan_export(weld_plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Strip internal tokens from weld plan data for clean JSON export."""
+    result: List[Dict[str, Any]] = []
+    for weld in weld_plans:
+        clean_steps: List[Dict[str, Any]] = []
+        for step in weld.get("steps", []):
+            clean_steps.append({
+                "step_index": step.get("step_index"),
+                "body_name": step.get("body_name"),
+                "material_name": step.get("material_name"),
+                "dimensions_mm": step.get("dimensions_mm"),
+                "is_sub_assembly": step.get("is_sub_assembly", False),
+                "sub_assembly_weld_id": step.get("sub_assembly_weld_id"),
+                "description": step.get("description", ""),
+            })
+        result.append({
+            "weld_id": weld.get("weld_id"),
+            "component_name": weld.get("component_name"),
+            "component_path": weld.get("component_path"),
+            "parent_weld_id": weld.get("parent_weld_id"),
+            "children_weld_ids": weld.get("children_weld_ids", []),
+            "notes": weld.get("notes", ""),
+            "is_manual": weld.get("is_manual", False),
+            "steps": clean_steps,
+        })
+    return result
+
+
+def build_hole_drilling_export(
+    hole_summaries: List[Dict[str, Any]],
+    resolved_settings: Any,
+) -> List[Dict[str, Any]]:
+    """Build a flat list of hole drilling rows for CSV/JSON export.
+
+    Returns a list of dicts with keys: body_name, component_path, material,
+    group, diameter, depth, type, thread_hint, face, end_a, end_b, position.
+    """
+    if not hole_summaries:
+        return []
+
+    factor = 1.0 / 25.4 if getattr(resolved_settings, 'unit', 'mm') == 'inches' else 1.0
+    precision = getattr(resolved_settings, 'dim_precision', 1)
+
+    def _fmt(val: Any) -> str:
+        if val is None:
+            return '-'
+        return str(round(float(val) * factor, precision))
+
+    rows: List[Dict[str, Any]] = []
+    for summary in hole_summaries:
+        body_name = summary.get('body_name', '')
+        comp_path = summary.get('component_path', '')
+        material = summary.get('material_name', '')
+
+        for group in summary.get('concentric_groups', []):
+            gi = group.get('group_index', 0)
+            hole_type = group.get('hole_type_label', '')
+
+            for hole in group.get('holes', []):
+                # Cross-section position
+                offset_mm = hole.get('cross_offset_mm')
+                face_w = hole.get('face_width_mm')
+                if offset_mm is not None and face_w and face_w > 0:
+                    if abs(offset_mm) < 0.5:
+                        pos_str = 'Centered'
+                    else:
+                        half_w = face_w / 2.0
+                        sa = half_w - offset_mm
+                        sb = half_w + offset_mm
+                        pos_str = '{}/{}'.format(_fmt(min(sa, sb)), _fmt(max(sa, sb)))
+                else:
+                    pos_str = '-'
+
+                rows.append({
+                    'body_name': body_name,
+                    'component_path': comp_path,
+                    'material': material,
+                    'group': gi + 1,
+                    'diameter': _fmt(hole.get('diameter_mm')),
+                    'depth': _fmt(hole.get('depth_mm')),
+                    'type': hole_type,
+                    'thread_hint': hole.get('thread_hint', '') or '-',
+                    'face': hole.get('face_label', ''),
+                    'end_a': _fmt(hole.get('distance_from_end_a_mm')),
+                    'end_b': _fmt(hole.get('distance_from_end_b_mm')),
+                    'position': pos_str,
+                })
+    return rows
+
+
 def export_csv(
     parts: Iterable[Mapping[str, Any]],
     filepath: str,
     settings: Optional[Any] = None,
+    hole_summaries: Optional[List[Dict[str, Any]]] = None,
 ) -> ExportResult:
     """Export the included parts to a CSV file."""
 
@@ -520,6 +611,28 @@ def export_csv(
                     _quantity(fp),
                 ])
 
+        # Hole drilling requirements (channels)
+        hole_rows = build_hole_drilling_export(hole_summaries or [], resolved_settings)
+        if hole_rows:
+            writer.writerow([])
+            writer.writerow(["Hole Drilling Requirements (drill before welding)"])
+            writer.writerow([
+                "Body", "Component", "Material", "Grp",
+                "Diameter ({})".format(unit_label),
+                "Depth ({})".format(unit_label),
+                "Type", "Tap / Clearance", "Face",
+                "End A ({})".format(unit_label),
+                "End B ({})".format(unit_label),
+                "Position",
+            ])
+            for hr in hole_rows:
+                writer.writerow([
+                    hr["body_name"], hr["component_path"], hr["material"],
+                    hr["group"], hr["diameter"], hr["depth"],
+                    hr["type"], hr["thread_hint"], hr["face"],
+                    hr["end_a"], hr["end_b"], hr["position"],
+                ])
+
     result = ExportResult(
         filepath=os.path.abspath(filepath),
         parts_exported=len(rows),
@@ -538,6 +651,8 @@ def export_json(
     parts: Iterable[Mapping[str, Any]],
     filepath: str,
     settings: Optional[Any] = None,
+    weld_plans: Optional[List[Dict[str, Any]]] = None,
+    hole_summaries: Optional[List[Dict[str, Any]]] = None,
 ) -> ExportResult:
     """Export the included parts to a JSON file."""
 
@@ -578,6 +693,10 @@ def export_json(
         "parts": json_parts,
         "linear_stock_summary": build_linear_stock_summary(parts_list, resolved_settings),
         "weld_assemblies": build_weld_assemblies(parts_list),
+        "weld_plans": build_weld_plan_export(weld_plans) if weld_plans else [],
+        "hole_drilling_requirements": build_hole_drilling_export(
+            hole_summaries or [], resolved_settings
+        ),
         "summary": {
             "total_unique_parts": len(rows),
             "total_parts": total_parts,
@@ -601,6 +720,45 @@ def export_json(
         result.parts_skipped,
     )
     return result
+
+
+def export_drill_csv(
+    hole_summaries: List[Dict[str, Any]],
+    filepath: str,
+    settings: Optional[Any] = None,
+) -> ExportResult:
+    """Export a standalone drill-list CSV for channel holes."""
+    resolved_settings = _coerce_settings(settings)
+    resolved_settings.unit = _normalize_unit(resolved_settings.unit)
+    unit_label = "in" if resolved_settings.unit == "inches" else "mm"
+
+    drill_rows = build_hole_drilling_export(hole_summaries, resolved_settings)
+
+    os.makedirs(os.path.dirname(os.path.abspath(filepath)) or ".", exist_ok=True)
+    with open(filepath, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow([
+            "Body", "Component", "Material", "Group",
+            "Diameter ({})".format(unit_label),
+            "Depth ({})".format(unit_label),
+            "Type", "Tap / Clearance", "Face",
+            "End A ({})".format(unit_label),
+            "End B ({})".format(unit_label),
+            "Position",
+        ])
+        for dr in drill_rows:
+            writer.writerow([
+                dr["body_name"], dr["component_path"], dr["material"],
+                dr["group"], dr["diameter"], dr["depth"],
+                dr["type"], dr["thread_hint"], dr["face"],
+                dr["end_a"], dr["end_b"], dr["position"],
+            ])
+
+    return ExportResult(
+        filepath=os.path.abspath(filepath),
+        parts_exported=len(drill_rows),
+        parts_skipped=0,
+    )
 
 
 def export_fasteners_csv(

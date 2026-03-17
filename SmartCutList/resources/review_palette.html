@@ -205,6 +205,7 @@
       background: #333;
       border-bottom: 1px solid #4a4a4a;
       display: flex;
+      align-items: center;
       gap: 0;
       flex-shrink: 0;
     }
@@ -251,6 +252,334 @@
       font-size: 11px;
       margin-top: 10px;
       border-radius: 3px 3px 0 0;
+    }
+
+    /* ── Weld plan UI ────────────────────────────────────── */
+    .weld-toolbar {
+      padding: 8px 0 6px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .weld-card {
+      background: #383838;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .weld-card-header {
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      background: #3a3a3a;
+      border-radius: 4px 4px 0 0;
+    }
+    .weld-card-header:hover { background: #424242; }
+    .weld-card-title {
+      font-weight: 600;
+      font-size: 12px;
+      color: #d9a04a;
+      flex: 1;
+    }
+    .weld-card-meta { font-size: 10px; color: #888; }
+    .weld-card-toggle { font-size: 10px; color: #888; width: 12px; }
+    .weld-card-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: #2a4a6a;
+      color: #9fd1ff;
+    }
+    .weld-card-body { padding: 8px 10px 10px; }
+    .weld-card-body.collapsed { display: none; }
+    .weld-notes-row { margin-bottom: 6px; }
+    .weld-notes-input {
+      width: 100%;
+      background: #4a4a4a;
+      color: #f0f0f0;
+      border: 1px solid #606060;
+      border-radius: 3px;
+      padding: 4px 6px;
+      font-size: 11px;
+      resize: vertical;
+      min-height: 28px;
+      font-family: inherit;
+    }
+    .weld-steps-label {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 6px 0 4px;
+    }
+    .weld-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 4px;
+      border-bottom: 1px solid #444;
+      cursor: default;
+      position: relative;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .weld-step:last-child { border-bottom: none; }
+    .weld-step.drag-active {
+      opacity: 0.7;
+      box-shadow: 0 2px 8px rgba(74,159,217,0.35);
+      z-index: 10;
+      background: #3a3a3a;
+    }
+    .weld-step.drag-insert-above { border-top: 2px solid #4a9fd9; }
+    .weld-step.drag-insert-below { border-bottom: 2px solid #4a9fd9; }
+    .drag-handle {
+      cursor: grab;
+      color: #666;
+      font-size: 12px;
+      padding: 0 2px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-handle:hover { color: #aaa; }
+    .step-num {
+      font-size: 10px;
+      color: #888;
+      min-width: 20px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .step-body-name {
+      font-size: 11px;
+      color: #e0e0e0;
+      flex: 1;
+      cursor: pointer;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .step-body-name:hover { color: #9fd1ff; text-decoration: underline; }
+    .step-body-name.is-sub-assembly { color: #9fd1ff; font-style: italic; }
+    .step-meta-pill {
+      font-size: 9px;
+      color: #aaa;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .step-desc-input {
+      background: #4a4a4a;
+      color: #f0f0f0;
+      border: 1px solid #606060;
+      border-radius: 3px;
+      padding: 2px 5px;
+      font-size: 10px;
+      width: 130px;
+      flex-shrink: 0;
+    }
+    .step-preview-btn {
+      background: #3d5a3d;
+      color: #a8d8a8;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 5px;
+      font-size: 9px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .step-preview-btn:hover { filter: brightness(1.15); }
+    .step-remove-btn {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .step-remove-btn:hover { color: #e07070; }
+    .weld-add-section {
+      margin-top: 8px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .weld-add-section select {
+      font-size: 11px;
+      flex: 1;
+      min-width: 0;
+    }
+    .weld-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .weld-nested-info {
+      font-size: 10px;
+      color: #9fd1ff;
+      padding: 2px 0 4px;
+      font-style: italic;
+    }
+    /* Hole / Drill tab */
+    .hole-body-group {
+      margin-bottom: 10px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      padding: 8px 10px;
+      border: 1px solid #3a3a3a;
+    }
+    .hole-body-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: #ccc;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hole-body-meta {
+      font-size: 10px;
+      font-weight: normal;
+      color: #888;
+    }
+    .hole-image-wrap {
+      display: inline-block;
+      width: 49%;
+      vertical-align: top;
+      margin: 4px 0.5%;
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid #444;
+      background: #1e1e1e;
+      position: relative;
+    }
+    .hole-image-wrap img {
+      width: 100%;
+      display: block;
+      cursor: pointer;
+    }
+    .hole-image-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.65);
+      color: #ddd;
+      font-size: 9px;
+      padding: 2px 6px;
+    }
+    .hole-table {
+      width: 100%;
+      font-size: 10px;
+      border-collapse: collapse;
+      margin-top: 4px;
+    }
+    .hole-table th {
+      background: #333;
+      padding: 3px 5px;
+      text-align: left;
+      color: #aaa;
+      font-weight: 600;
+      border-bottom: 1px solid #555;
+    }
+    .hole-table td {
+      padding: 3px 5px;
+      border-bottom: 1px solid #333;
+      color: #ccc;
+    }
+    .hole-table tr:hover td { background: #363636; }
+    .hole-row-active td { background: #2a4a6a !important; }
+    .weld-step-active { background: #2a4a6a !important; }
+    .hole-group-badge {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .hole-through { background: #2a5a2a; color: #8f8; }
+    .hole-blind { background: #5a4a2a; color: #fd8; }
+    .hole-counterbored { background: #3a3a6a; color: #aaf; }
+    .hole-c2c-summary {
+      font-size: 9px;
+      color: #888;
+      margin-top: 4px;
+      padding: 3px 5px;
+      background: #252525;
+      border-radius: 2px;
+    }
+    .hole-thread-hint {
+      font-size: 9px;
+      color: #8ab4f8;
+      font-style: italic;
+    }
+    .hole-face-badge {
+      display: inline-block;
+      font-size: 8px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      background: #3a3a3a;
+      color: #aaa;
+    }
+    /* Create assembly modal */
+    .weld-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .weld-modal-overlay.open { display: flex; }
+    .weld-modal {
+      background: #383838;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 16px;
+      width: 340px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .weld-modal h3 { font-size: 13px; margin: 0 0 10px; color: #d9a04a; }
+    .weld-modal label { font-size: 11px; display: block; margin: 6px 0 2px; color: #bbb; }
+    .weld-modal input[type="text"] {
+      width: 100%;
+      background: #4a4a4a;
+      color: #f0f0f0;
+      border: 1px solid #606060;
+      border-radius: 3px;
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+    .weld-modal-group-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #555;
+      border-radius: 3px;
+      background: #2f2f2f;
+      padding: 4px;
+    }
+    .weld-modal-group-list label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 4px;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .weld-modal-group-list label:hover { background: #3a3a3a; }
+    .weld-modal-footer {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      justify-content: flex-end;
     }
 
     /* ── Template help ─────────────────────────────────── */
@@ -340,7 +669,19 @@
     Edit the template above and click <strong>Save</strong> to persist your changes.
   </div>
 
-  <!-- ── Bulk-action bar ───────────────────────────────── -->
+  <!-- ── Tab bar ───────────────────────────────────────── -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="cutlist">Cut List</button>
+    <button class="tab-btn" data-tab="fasteners">Fasteners</button>
+    <button class="tab-btn" data-tab="drill">Drill</button>
+    <button class="tab-btn" data-tab="welds">Welds</button>
+    <button class="tab-btn" data-tab="printed">3D Prints</button>
+    <button class="tab-btn" data-tab="sourced">Sourced</button>
+    <span style="flex:1;"></span>
+    <button class="sm" id="btn-export-all" style="background:#2a6a2a;color:#b0f0b0;margin-right:4px;">&#8659; Export All</button>
+  </div>
+
+  <!-- ── Bulk-action bar (Cut List only) ──────────────── -->
   <div class="bulk-bar">
     <button class="sm" id="btn-select-all">&#10003; Select All</button>
     <button class="sm secondary" id="btn-deselect-all">&#10005; Deselect All</button>
@@ -353,15 +694,6 @@
     <span class="search-wrap">
       <input id="search-input" type="text" placeholder="&#128269; Search parts...">
     </span>
-  </div>
-
-  <!-- ── Tab bar ───────────────────────────────────────── -->
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="cutlist">Cut List</button>
-    <button class="tab-btn" data-tab="fasteners">Fasteners</button>
-    <button class="tab-btn" data-tab="welds">Welds</button>
-    <button class="tab-btn" data-tab="printed">3D Prints</button>
-    <button class="tab-btn" data-tab="sourced">Sourced</button>
   </div>
 
   <!-- ── Main content area ────────────────────────────── -->
@@ -411,10 +743,35 @@
       <div id="fastener-summary" class="fastener-total" style="display:none;"></div>
     </div>
 
+    <!-- Drill tab (holes in channels — drill before welding) -->
+    <div id="tab-drill" class="tab-content">
+      <div id="drill-loading" style="padding:24px 12px;color:#bbb;">No holes detected on channel bodies.</div>
+      <div id="drill-content" style="display:none;"></div>
+    </div>
+
     <!-- Welds tab -->
     <div id="tab-welds" class="tab-content">
-      <div id="weld-loading" style="padding:24px 12px;color:#bbb;">No weld assemblies detected.</div>
-      <div id="weld-content" style="display:none;"></div>
+      <div class="weld-toolbar">
+        <button class="sm" id="btn-weld-create">+ New Assembly</button>
+        <span style="flex:1;"></span>
+      </div>
+      <div id="weld-loading" style="padding:12px 0;color:#bbb;">No weld assemblies detected.</div>
+      <div id="weld-assemblies"></div>
+    </div>
+
+    <!-- Create-assembly modal -->
+    <div class="weld-modal-overlay" id="weld-modal-overlay">
+      <div class="weld-modal">
+        <h3>New Weld Assembly</h3>
+        <label for="weld-modal-name">Assembly Name</label>
+        <input type="text" id="weld-modal-name" placeholder="e.g. Main Frame" />
+        <label>Add Bodies From Groups</label>
+        <div class="weld-modal-group-list" id="weld-modal-group-list"></div>
+        <div class="weld-modal-footer">
+          <button class="sm secondary" id="weld-modal-cancel">Cancel</button>
+          <button class="sm" id="weld-modal-confirm">Create</button>
+        </div>
+      </div>
     </div>
 
     <!-- 3D Prints tab -->
@@ -436,7 +793,11 @@
     <button id="btn-export-package">&#8659; Export CSV + DXFs</button>
     <button id="btn-export-csv" class="secondary">CSV Only</button>
     <button id="btn-export-json" class="secondary">JSON Only</button>
+    <button id="btn-export-dxfs-only" class="secondary">DXFs Only</button>
     <button id="btn-export-fasteners" class="secondary" style="display:none;">Export Fasteners CSV</button>
+    <button id="btn-export-drill-csv" class="secondary" style="display:none;">Export Drill List CSV</button>
+    <button id="btn-capture-hole-photos" style="display:none;background:#4a3a20;color:#e8a040;">&#128247; Capture Hole Photos</button>
+    <button id="btn-generate-weld-plan" style="display:none;background:#5a6a2a;color:#e8f0a0;">&#9881; Generate Drill and Weld Plan</button>
     <div id="status"></div>
   </div>
 
@@ -470,6 +831,7 @@
       partTypes: [],
       weldAssemblies: [],
       weldGroupIds: {},  // group_id → weld assembly info
+      weldPlans: [],     // enhanced ordered weld plan data
       includeFasteners: true,
       activeTab: 'cutlist',
       initReceived: false,
@@ -478,7 +840,10 @@
       settings: {
         naming_template: '{name}_{material}_{dims}',
         unit: 'mm'
-      }
+      },
+      // drag-and-drop tracking
+      _dragWeldId: null,
+      _dragStepIndex: null
     };
 
     /* ============================================================
@@ -489,6 +854,17 @@
         try {
           if (action === 'initData') {
             applyInitData(JSON.parse(data || '{}'));
+          } else if (action === 'updateWeldPlans') {
+            state.weldPlans = JSON.parse(data || '[]');
+            renderWeldTab();
+          } else if (action === 'updateHoleImages') {
+            var updatedSummaries = JSON.parse(data || '[]');
+            window.__holeSummaries = updatedSummaries;
+            state.holeSummaries = updatedSummaries;
+            renderDrillTab();
+            // Reset capture button
+            var captBtn = document.getElementById('btn-capture-hole-photos');
+            if (captBtn) { captBtn.textContent = '\ud83d\udcf7 Capture Hole Photos'; captBtn.disabled = false; }
           }
         } catch (err) {
           console.error('SmartCutList palette error', err);
@@ -517,6 +893,7 @@
       state.groups = msg.groups || [];
       state.partTypes = msg.part_types || [];
       state.weldAssemblies = msg.weld_assemblies || [];
+      state.weldPlans = msg.weld_plans || [];
       // Build reverse lookup: group_id → weld info
       state.weldGroupIds = {};
       for (var w = 0; w < state.weldAssemblies.length; w++) {
@@ -526,11 +903,16 @@
           state.weldGroupIds[wIds[wi]] = weld;
         }
       }
+      // Hole summaries for channel bodies
+      state.holeSummaries = msg.hole_summaries || [];
+      window.__holeSummaries = state.holeSummaries;
+
       if (msg.include_fasteners !== undefined) { state.includeFasteners = msg.include_fasteners; }
       if (msg.settings) {
         if (msg.settings.naming_template) { state.settings.naming_template = msg.settings.naming_template; }
         if (msg.settings.unit)            { state.settings.unit = msg.settings.unit; }
       }
+      window.__currentUnit = (state.settings && state.settings.unit) || 'mm';
       applySettingsToInputs();
       populateTypeFilterDropdown();
       renderAll();
@@ -557,6 +939,7 @@
     function syncSettingsFromInputs() {
       state.settings.naming_template = document.getElementById('naming-template').value;
       state.settings.unit = document.getElementById('unit-select').value;
+      window.__currentUnit = state.settings.unit;
     }
 
     function findGroup(id) {
@@ -1276,6 +1659,108 @@
     });
 
     /* ============================================================
+       Weld plan buttons
+    ============================================================ */
+    document.getElementById('btn-export-drill-csv').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      sendToPython('export_drill_csv', { settings: state.settings });
+    });
+
+    document.getElementById('btn-capture-hole-photos').addEventListener('click', function() {
+      var btn = document.getElementById('btn-capture-hole-photos');
+      btn.textContent = 'Capturing...';
+      btn.disabled = true;
+      sendToPython('capture_hole_images', {});
+    });
+
+    document.getElementById('btn-generate-weld-plan').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      sendToPython('generate_weld_plan', { settings: state.settings });
+    });
+
+    document.getElementById('btn-export-dxfs-only').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      setStatus('Exporting DXFs...', 0);
+      sendToPython('export_dxfs_only', { settings: state.settings });
+      window.setTimeout(function() { setStatus(''); }, 2500);
+    });
+
+    document.getElementById('btn-export-all').addEventListener('click', function() {
+      syncSettingsFromInputs();
+      setStatus('Exporting all...', 0);
+      sendToPython('export_all', { settings: state.settings });
+      window.setTimeout(function() { setStatus(''); }, 5000);
+    });
+
+    document.getElementById('btn-weld-create').addEventListener('click', function() {
+      // Populate group list with tree structure, disabling already-assigned bodies
+      var listEl = document.getElementById('weld-modal-group-list');
+      listEl.innerHTML = '';
+      var assigned = assignedWeldBodyKeys();
+      var treeEntries = buildBodyTree(assigned);
+      var currentHeader = null;
+      for (var te = 0; te < treeEntries.length; te++) {
+        var entry = treeEntries[te];
+        if (entry.isHeader) {
+          var hdr = document.createElement('div');
+          hdr.style.cssText = 'font-size:10px;color:#9fd1ff;padding:5px 4px 2px;font-weight:600;margin-top:4px;border-top:1px solid #444;';
+          hdr.textContent = entry.label;
+          listEl.appendChild(hdr);
+          currentHeader = hdr;
+        } else {
+          var lbl = document.createElement('label');
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = entry.value;
+          if (entry.disabled) {
+            cb.disabled = true;
+            lbl.style.opacity = '0.45';
+            lbl.title = 'Already assigned to a weld assembly';
+          }
+          lbl.appendChild(cb);
+          var txt = document.createTextNode(' ' + entry.label);
+          lbl.appendChild(txt);
+          listEl.appendChild(lbl);
+        }
+      }
+      document.getElementById('weld-modal-name').value = '';
+      document.getElementById('weld-modal-overlay').classList.add('open');
+    });
+
+    document.getElementById('weld-modal-cancel').addEventListener('click', function() {
+      document.getElementById('weld-modal-overlay').classList.remove('open');
+    });
+
+    document.getElementById('weld-modal-confirm').addEventListener('click', function() {
+      var name = document.getElementById('weld-modal-name').value.trim();
+      if (!name) { alert('Please enter an assembly name.'); return; }
+      var checked = document.querySelectorAll('#weld-modal-group-list input[type="checkbox"]:checked');
+      if (!checked.length) { alert('Please select at least one body.'); return; }
+      // Build group_ids list (unique) — we send individual body add commands after creation
+      // For simplicity, collect unique group_ids; Python will include first body only per group.
+      // Actually: send all checked group_id+body_index pairs via a combined create action.
+      // The create handler accepts group_ids; it will add ALL bodies from those groups.
+      // To support per-body selection we build a list of {group_id, body_index} entries.
+      // Since the handler takes group_ids (adding all bodies per group), pack unique groups.
+      var groupIds = [];
+      var seen = {};
+      for (var ci = 0; ci < checked.length; ci++) {
+        var parts = checked[ci].value.split('::');
+        if (parts[0] && !seen[checked[ci].value]) {
+          seen[checked[ci].value] = true;
+          groupIds.push(parts[0]);
+        }
+      }
+      sendToPython('weld_create_assembly', { name: name, group_ids: groupIds });
+      document.getElementById('weld-modal-overlay').classList.remove('open');
+    });
+
+    // Close modal on overlay click
+    document.getElementById('weld-modal-overlay').addEventListener('click', function(e) {
+      if (e.target === this) { this.classList.remove('open'); }
+    });
+
+    /* ============================================================
        Tab switching
     ============================================================ */
     var tabBtns = document.querySelectorAll('.tab-btn');
@@ -1292,23 +1777,35 @@
           // Show/hide tab content
           var cutlistTab = document.getElementById('tab-cutlist');
           var fastenersTab = document.getElementById('tab-fasteners');
+          var drillTab = document.getElementById('tab-drill');
           var weldsTab = document.getElementById('tab-welds');
           var printedTab = document.getElementById('tab-printed');
           var sourcedTab = document.getElementById('tab-sourced');
           cutlistTab.classList.toggle('active', tab === 'cutlist');
           fastenersTab.classList.toggle('active', tab === 'fasteners');
+          drillTab.classList.toggle('active', tab === 'drill');
           weldsTab.classList.toggle('active', tab === 'welds');
           printedTab.classList.toggle('active', tab === 'printed');
           sourcedTab.classList.toggle('active', tab === 'sourced');
+          // Toggle bulk-action bar (only visible on Cut List tab)
+          document.querySelector('.bulk-bar').style.display = tab === 'cutlist' ? '' : 'none';
           // Toggle export buttons visibility
           var pkgBtn = document.getElementById('btn-export-package');
           var csvBtn = document.getElementById('btn-export-csv');
           var jsonBtn = document.getElementById('btn-export-json');
+          var dxfOnlyBtn = document.getElementById('btn-export-dxfs-only');
           var fastBtn = document.getElementById('btn-export-fasteners');
+          var drillCsvBtn = document.getElementById('btn-export-drill-csv');
+          var drillPhotoBtn = document.getElementById('btn-capture-hole-photos');
+          var weldPlanBtn = document.getElementById('btn-generate-weld-plan');
           pkgBtn.style.display = tab === 'cutlist' ? '' : 'none';
           csvBtn.style.display = tab === 'cutlist' ? '' : 'none';
           jsonBtn.style.display = tab === 'cutlist' ? '' : 'none';
+          dxfOnlyBtn.style.display = tab === 'cutlist' ? '' : 'none';
           fastBtn.style.display = tab === 'fasteners' ? '' : 'none';
+          drillCsvBtn.style.display = tab === 'drill' ? '' : 'none';
+          drillPhotoBtn.style.display = tab === 'drill' ? '' : 'none';
+          weldPlanBtn.style.display = tab === 'welds' ? '' : 'none';
         };
       })(tabBtns[ti]));
     }
@@ -1557,60 +2054,743 @@
     /* ============================================================
        Weld assembly rendering
     ============================================================ */
+    /* ============================================================
+       Weld plan helpers
+    ============================================================ */
+    function findWeldPlan(weldId) {
+      for (var i = 0; i < state.weldPlans.length; i++) {
+        if (state.weldPlans[i].weld_id === weldId) return state.weldPlans[i];
+      }
+      return null;
+    }
+
+    /**
+     * Return a Set of "group_id::body_index" keys that are already part of
+     * any weld plan.  Used to prevent adding a body to multiple assemblies.
+     */
+    function assignedWeldBodyKeys() {
+      var keys = {};
+      var plans = state.weldPlans || [];
+      for (var pi = 0; pi < plans.length; pi++) {
+        var steps = plans[pi].steps || [];
+        for (var si = 0; si < steps.length; si++) {
+          var s = steps[si];
+          if (s.group_id && !s.is_sub_assembly) {
+            // Use body_token as the unique key if available, else group_id::body_index
+            var k = s.group_id + '::' + (s.body_index != null ? s.body_index : si);
+            keys[k] = true;
+            // Also track by body_token for cross-checking
+            if (s.body_token) keys['tok::' + s.body_token] = true;
+          }
+        }
+      }
+      return keys;
+    }
+
+    /**
+     * Build a tree of groups organised by component_path for the
+     * "add body" dropdown / create-assembly modal.
+     * Returns a sorted flat list of { path, label, value, disabled } entries.
+     */
+    function buildBodyTree(assignedKeys) {
+      var entries = [];
+      // Gather unique component paths and organise groups under them
+      var pathMap = {};    // path → [{grp, bi, bodyName}]
+      var pathOrder = [];  // insertion order
+      for (var gi = 0; gi < state.groups.length; gi++) {
+        var grp = state.groups[gi];
+        var bodies = grp.bodies || [];
+        var tokens = grp.body_tokens || [];
+        var cpath = grp.component_path || grp.component_name || '';
+        for (var bi = 0; bi < bodies.length; bi++) {
+          var key = grp.group_id + '::' + bi;
+          var tokKey = tokens[bi] ? 'tok::' + tokens[bi] : '';
+          var taken = !!assignedKeys[key] || (tokKey && !!assignedKeys[tokKey]);
+          if (!pathMap[cpath]) {
+            pathMap[cpath] = [];
+            pathOrder.push(cpath);
+          }
+          pathMap[cpath].push({
+            grp: grp,
+            bi: bi,
+            bodyName: bodies[bi],
+            key: key,
+            taken: taken,
+          });
+        }
+      }
+      pathOrder.sort();
+      for (var pi = 0; pi < pathOrder.length; pi++) {
+        var p = pathOrder[pi];
+        var items = pathMap[p];
+        entries.push({ isHeader: true, label: p || '(root)', value: '', disabled: true });
+        for (var ii = 0; ii < items.length; ii++) {
+          var it = items[ii];
+          entries.push({
+            isHeader: false,
+            label: it.bodyName + ' (' + (it.grp.display_name || '') + ')',
+            value: it.key,
+            disabled: it.taken,
+          });
+        }
+      }
+      return entries;
+    }
+
+    function weldStepDimsLabel(step) {
+      var d = step.dimensions_mm;
+      if (!d || d.length < 3) return '';
+      var factor = state.settings.unit === 'inches' ? 1/25.4 : 1.0;
+      var suffix = state.settings.unit === 'inches' ? 'in' : 'mm';
+      return d.map(function(v) { return (v * factor).toFixed(1); }).join(' x ') + ' ' + suffix;
+    }
+
     function renderWeldTab() {
       var loadingEl = document.getElementById('weld-loading');
-      var contentEl = document.getElementById('weld-content');
-      var welds = state.weldAssemblies || [];
+      var assembliesEl = document.getElementById('weld-assemblies');
+      var plans = state.weldPlans || [];
 
-      if (!welds.length) {
+      // Fall back to legacy weldAssemblies if weld plans not available
+      if (!plans.length && !(state.weldAssemblies || []).length) {
         loadingEl.style.display = 'block';
         loadingEl.textContent = 'No weld assemblies detected.';
-        contentEl.style.display = 'none';
+        assembliesEl.innerHTML = '';
         return;
       }
+      loadingEl.style.display = 'none';
+      assembliesEl.innerHTML = '';
 
+      // If we have enhanced weld plans, render them as interactive cards
+      if (plans.length) {
+        for (var pi = 0; pi < plans.length; pi++) {
+          assembliesEl.appendChild(renderWeldCard(plans[pi]));
+        }
+      } else {
+        // Legacy fallback: simple table
+        var header = document.createElement('div');
+        header.className = 'weld-group-header';
+        header.textContent = '\ud83d\udd17 Weld Assemblies (' + state.weldAssemblies.length + ')';
+        assembliesEl.appendChild(header);
+        var tbl = document.createElement('table');
+        tbl.innerHTML = '<thead><tr><th>Component</th><th>Bodies</th></tr></thead>';
+        var tbody = document.createElement('tbody');
+        for (var li = 0; li < state.weldAssemblies.length; li++) {
+          var lw = state.weldAssemblies[li];
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + escapeHtml(lw.component_name || '') + '</td>' +
+            '<td>' + escapeHtml((lw.body_names || []).join(', ')) + '</td>';
+          tr.style.cursor = 'pointer';
+          tr.addEventListener('click', (function(w) {
+            return function() { sendToPython('highlight_weld', { group_ids: w.group_ids || [] }); };
+          })(lw));
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        assembliesEl.appendChild(tbl);
+      }
+    }
+
+    function renderWeldCard(plan) {
+      var weldId = plan.weld_id;
+      var steps = plan.steps || [];
+      var isManual = plan.is_manual;
+
+      var card = document.createElement('div');
+      card.className = 'weld-card';
+      card.id = 'weld-card-' + weldId;
+
+      // Header
+      var hdr = document.createElement('div');
+      hdr.className = 'weld-card-header';
+      var nestedBadge = plan.parent_weld_id ?
+        '<span class="weld-card-badge">nested</span>' : '';
+      var manualBadge = isManual ?
+        '<span class="weld-card-badge" style="background:#4a2a6a;">manual</span>' : '';
+      hdr.innerHTML =
+        '<span class="weld-card-toggle">&#9660;</span>' +
+        '<span class="weld-card-title">' + escapeHtml(plan.component_name || weldId) + '</span>' +
+        nestedBadge + manualBadge +
+        '<span class="weld-card-meta">' + steps.length + ' step' + (steps.length !== 1 ? 's' : '') + '</span>';
+      card.appendChild(hdr);
+
+      // Body
+      var body = document.createElement('div');
+      body.className = 'weld-card-body';
+
+      // Assembly notes
+      var notesRow = document.createElement('div');
+      notesRow.className = 'weld-notes-row';
+      var notesInput = document.createElement('textarea');
+      notesInput.className = 'weld-notes-input';
+      notesInput.placeholder = 'Assembly notes (weld process, material spec, pre-heat requirements…)';
+      notesInput.value = plan.notes || '';
+      notesInput.rows = 1;
+      notesInput.addEventListener('change', (function(wid) {
+        return function(e) {
+          sendToPython('weld_update_notes', { weld_id: wid, notes: e.target.value });
+        };
+      })(weldId));
+      notesRow.appendChild(notesInput);
+      body.appendChild(notesRow);
+
+      // Steps label
+      var stepsLabel = document.createElement('div');
+      stepsLabel.className = 'weld-steps-label';
+      stepsLabel.textContent = 'Weld Sequence (drag to reorder)';
+      body.appendChild(stepsLabel);
+
+      // Steps list
+      var stepsList = document.createElement('div');
+      stepsList.id = 'weld-steps-' + weldId;
+      for (var si = 0; si < steps.length; si++) {
+        stepsList.appendChild(renderWeldStepRow(plan, steps[si]));
+      }
+      body.appendChild(stepsList);
+
+      // Add-body section
+      var addSection = document.createElement('div');
+      addSection.className = 'weld-add-section';
+
+      var addSelect = document.createElement('select');
+      addSelect.className = 'secondary';
+      addSelect.style.fontSize = '11px';
+      var defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '— Add body —';
+      addSelect.appendChild(defaultOpt);
+      // Build tree-structured dropdown filtering out already-assigned bodies
+      var assigned = assignedWeldBodyKeys();
+      var treeEntries = buildBodyTree(assigned);
+      for (var te = 0; te < treeEntries.length; te++) {
+        var entry = treeEntries[te];
+        if (entry.isHeader) {
+          var optGroup = document.createElement('optgroup');
+          optGroup.label = entry.label;
+          addSelect.appendChild(optGroup);
+        } else {
+          var opt = document.createElement('option');
+          opt.value = entry.value;
+          opt.textContent = (entry.disabled ? '\u2714 ' : '') + entry.label;
+          if (entry.disabled) {
+            opt.disabled = true;
+            opt.style.color = '#666';
+          }
+          // Append to last optgroup or to select directly
+          var lastOg = addSelect.querySelector('optgroup:last-of-type');
+          if (lastOg) { lastOg.appendChild(opt); } else { addSelect.appendChild(opt); }
+        }
+      }
+      addSection.appendChild(addSelect);
+
+      var addBtn = document.createElement('button');
+      addBtn.className = 'sm secondary';
+      addBtn.textContent = 'Add';
+      addBtn.addEventListener('click', (function(wid, sel) {
+        return function() {
+          var val = sel.value;
+          if (!val) return;
+          var parts = val.split('::');
+          if (parts.length < 2) return;
+          sendToPython('weld_add_body', { weld_id: wid, group_id: parts[0], body_index: parseInt(parts[1], 10) });
+          sel.value = '';
+        };
+      })(weldId, addSelect));
+      addSection.appendChild(addBtn);
+      body.appendChild(addSection);
+
+      // Hole badge — link to Drill tab if this assembly has drilled channels
+      var holeCount = getWeldHoleCount(plan);
+      if (holeCount > 0) {
+        var holeBadge = document.createElement('div');
+        holeBadge.style.cssText = 'font-size:10px;color:#e8a040;padding:4px 0;cursor:pointer;';
+        holeBadge.innerHTML = '&#9881; ' + holeCount + ' hole(s) on channels &mdash; <u>see Drill tab</u>';
+        holeBadge.addEventListener('click', function() {
+          var drillBtn = document.querySelector('.tab-btn[data-tab="drill"]');
+          if (drillBtn) drillBtn.click();
+        });
+        body.appendChild(holeBadge);
+      }
+
+      // Card action buttons
+      var cardActions = document.createElement('div');
+      cardActions.className = 'weld-card-actions';
+
+      // Delete button
+      var delBtn = document.createElement('button');
+      delBtn.className = 'sm secondary';
+      delBtn.style.color = '#e07070';
+      delBtn.textContent = 'Delete Assembly';
+      delBtn.addEventListener('click', (function(wid, name) {
+        return function() {
+          if (confirm('Delete weld assembly "' + name + '"?')) {
+            sendToPython('weld_delete_assembly', { weld_id: wid });
+          }
+        };
+      })(weldId, plan.component_name || weldId));
+      cardActions.appendChild(delBtn);
+
+      // Unnest button for nested assemblies
+      if (plan.parent_weld_id) {
+        var unnestBtn = document.createElement('button');
+        unnestBtn.className = 'sm secondary';
+        unnestBtn.textContent = 'Promote to Top-Level';
+        unnestBtn.addEventListener('click', (function(wid) {
+          return function() { sendToPython('weld_unnest_assembly', { child_weld_id: wid }); };
+        })(weldId));
+        cardActions.appendChild(unnestBtn);
+      }
+
+      body.appendChild(cardActions);
+
+      // Nested children info
+      if (plan.children_weld_ids && plan.children_weld_ids.length) {
+        var nestedInfo = document.createElement('div');
+        nestedInfo.className = 'weld-nested-info';
+        nestedInfo.textContent = 'Sub-assemblies: ' + plan.children_weld_ids.map(function(cid) {
+          var cp = findWeldPlan(cid);
+          return cp ? cp.component_name : cid;
+        }).join(', ');
+        body.appendChild(nestedInfo);
+      }
+
+      card.appendChild(body);
+
+      // Toggle collapse on header click
+      hdr.addEventListener('click', function() {
+        var tog = hdr.querySelector('.weld-card-toggle');
+        if (body.classList.contains('collapsed')) {
+          body.classList.remove('collapsed');
+          tog.innerHTML = '&#9660;';
+        } else {
+          body.classList.add('collapsed');
+          tog.innerHTML = '&#9654;';
+        }
+      });
+
+      return card;
+    }
+
+    // ---------------------------------------------------------------
+    // Row highlighting helper (drill & weld tabs)
+    // ---------------------------------------------------------------
+
+    function highlightRow(container, row, activeClass) {
+      var prev = container.querySelectorAll('.' + activeClass);
+      for (var i = 0; i < prev.length; i++) prev[i].classList.remove(activeClass);
+      if (row) row.classList.add(activeClass);
+    }
+
+    // ---------------------------------------------------------------
+    // Drill Tab — standalone page for holes in channel bodies
+    // ---------------------------------------------------------------
+
+    function getWeldHoleCount(plan) {
+      var steps = plan.steps || [];
+      var tokens = {};
+      for (var si = 0; si < steps.length; si++) {
+        var tk = steps[si].body_token;
+        if (tk) tokens[tk] = true;
+      }
+      var count = 0;
+      var hs = window.__holeSummaries || [];
+      for (var i = 0; i < hs.length; i++) {
+        if (tokens[hs[i].body_token]) count += (hs[i].total_holes || 0);
+      }
+      return count;
+    }
+
+    function renderDrillTab() {
+      var loadingEl = document.getElementById('drill-loading');
+      var contentEl = document.getElementById('drill-content');
+      var summaries = window.__holeSummaries || [];
+
+      if (!summaries.length) {
+        loadingEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        contentEl.innerHTML = '';
+        return;
+      }
       loadingEl.style.display = 'none';
       contentEl.style.display = 'block';
       contentEl.innerHTML = '';
 
-      var header = document.createElement('div');
-      header.className = 'weld-group-header';
-      header.textContent = '\ud83d\udd17 Weld Assemblies (' + welds.length + ')';
-      contentEl.appendChild(header);
+      var totalHoles = 0;
+      for (var i = 0; i < summaries.length; i++) totalHoles += (summaries[i].total_holes || 0);
 
-      var tbl = document.createElement('table');
-      tbl.innerHTML =
-        '<thead><tr>' +
-        '<th>Component</th>' +
-        '<th style="width:80px;">Body Count</th>' +
-        '<th>Bodies Joined</th>' +
-        '</tr></thead>';
-      var tbody = document.createElement('tbody');
+      // Header summary
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'padding:8px 10px;font-size:11px;color:#aaa;border-bottom:1px solid #3a3a3a;margin-bottom:8px;';
+      hdr.textContent = totalHoles + ' hole(s) on ' + summaries.length + ' channel(s) — drill before welding';
+      contentEl.appendChild(hdr);
 
-      for (var i = 0; i < welds.length; i++) {
-        var w = welds[i];
-        var tr = document.createElement('tr');
-        var bodyNames = (w.body_names || []);
-        var bodiesHtml = '';
-        for (var b = 0; b < bodyNames.length; b++) {
-          if (b > 0) { bodiesHtml += ', '; }
-          bodiesHtml += escapeHtml(bodyNames[b]);
-        }
-        tr.innerHTML =
-          '<td>' + escapeHtml(w.component_name || w.component_path || '') + '</td>' +
-          '<td>' + (w.body_count || bodyNames.length) + '</td>' +
-          '<td>' + bodiesHtml + '</td>';
-        tr.style.cursor = 'pointer';
-        tr.addEventListener('click', (function(weld) {
-          return function() {
-            sendToPython('highlight_weld', { group_ids: weld.group_ids || [] });
+      // Group channels by dimensions + material (like cut list grouping)
+      var channelGroups = {};
+      for (var si = 0; si < summaries.length; si++) {
+        var s = summaries[si];
+        var dims = s.dimensions_mm || [];
+        var dimsKey = dims.map(function(d) { return d.toFixed(0); }).join('x');
+        var key = dimsKey + '_' + (s.material_name || 'Unknown');
+        if (!channelGroups[key]) {
+          channelGroups[key] = {
+            dimensions_mm: dims,
+            material_name: s.material_name || 'Unknown',
+            summaries: []
           };
-        })(w));
-        tbody.appendChild(tr);
+        }
+        channelGroups[key].summaries.push(s);
       }
 
-      tbl.appendChild(tbody);
-      contentEl.appendChild(tbl);
+      var groupKeys = Object.keys(channelGroups);
+      for (var gk = 0; gk < groupKeys.length; gk++) {
+        var cg = channelGroups[groupKeys[gk]];
+
+        // Group header — shows shared channel type for setup planning
+        var ghdr = document.createElement('div');
+        ghdr.style.cssText = 'padding:6px 10px;margin:8px 0 4px;font-size:11px;font-weight:600;' +
+          'color:#8ab4f8;background:#1a2a3a;border-radius:4px;border-left:3px solid #4a90d9;';
+        var unit = (window.__currentUnit || 'mm');
+        var factor = unit === 'inches' ? 1.0 / 25.4 : 1.0;
+        var suffix = unit === 'inches' ? 'in' : 'mm';
+        var dimsStr = cg.dimensions_mm.map(function(d) {
+          return (d * factor).toFixed(1);
+        }).join(' × ') + ' ' + suffix;
+        ghdr.textContent = cg.material_name + ' — ' + dimsStr +
+          ' (' + cg.summaries.length + ' piece' + (cg.summaries.length > 1 ? 's' : '') +
+          ', same setup)';
+        contentEl.appendChild(ghdr);
+
+        // Render each channel body within this group
+        for (var bi = 0; bi < cg.summaries.length; bi++) {
+          contentEl.appendChild(renderHoleBodyGroup(cg.summaries[bi]));
+        }
+      }
+    }
+
+    function renderHoleBodyGroup(summary) {
+      var group = document.createElement('div');
+      group.className = 'hole-body-group';
+
+      // Body name header
+      var nameDiv = document.createElement('div');
+      nameDiv.className = 'hole-body-name';
+      nameDiv.innerHTML =
+        escapeHtml(summary.body_name || 'Channel') +
+        '<span class="hole-body-meta">' +
+        escapeHtml(summary.material_name || '') + ' &mdash; ' +
+        (summary.total_holes || 0) + ' hole(s), ' +
+        (summary.concentric_groups || []).length + ' group(s)' +
+        '</span>';
+      group.appendChild(nameDiv);
+
+      var unit = (window.__currentUnit || 'mm');
+      var suffix = unit === 'inches' ? 'in' : 'mm';
+      var factor = unit === 'inches' ? 1.0 / 25.4 : 1.0;
+      function fmtDim(val) {
+        if (val == null) return '-';
+        return (val * factor).toFixed(1);
+      }
+
+      // Create flex container: table on left, images on right
+      var flexRow = document.createElement('div');
+      flexRow.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+
+      // Left: hole table
+      var leftCol = document.createElement('div');
+      leftCol.style.cssText = 'flex:1;min-width:0;overflow-x:auto;';
+
+      // Right: face images
+      var rightCol = document.createElement('div');
+      rightCol.style.cssText = 'flex:0 0 240px;max-width:240px;';
+
+      var faceImages = summary.face_images || {};
+      var faceLabels = Object.keys(faceImages);
+
+      for (var fi = 0; fi < faceLabels.length; fi++) {
+        var fl = faceLabels[fi];
+        var b64 = faceImages[fl];
+        if (!b64) continue;
+
+        // Build dimension callout for this face
+        var calloutParts = [];
+        var allConcGroups = summary.concentric_groups || [];
+        for (var cgi = 0; cgi < allConcGroups.length; cgi++) {
+          var cg = allConcGroups[cgi];
+          var cgHoles = cg.holes || [];
+          for (var chi = 0; chi < cgHoles.length; chi++) {
+            if (cgHoles[chi].face_label === fl) {
+              calloutParts.push(
+                '<span style="display:block;margin:1px 0;">' +
+                '<strong>Grp ' + (cg.group_index + 1) + ':</strong> ' +
+                '&empty;' + fmtDim(cgHoles[chi].diameter_mm) + ' ' + suffix +
+                ', ' + fmtDim(cgHoles[chi].distance_from_end_a_mm) + ' from A' +
+                '</span>'
+              );
+              break; // one callout per group
+            }
+          }
+        }
+
+        var imgWrap = document.createElement('div');
+        imgWrap.style.cssText = 'margin-bottom:6px;border-radius:3px;overflow:hidden;border:1px solid #444;background:#1e1e1e;';
+        var calloutHtml = calloutParts.length ?
+          '<div style="font-size:8px;color:#aaa;background:#222;padding:2px 5px;">' +
+          calloutParts.join('') + '</div>' : '';
+        imgWrap.innerHTML =
+          '<img src="' + b64 + '" alt="' + escapeHtml(fl) + ' view" ' +
+          'style="width:100%;display:block;cursor:zoom-in;" ' +
+          'onclick="window._openLightbox(this.src)" />' +
+          '<div style="font-size:8px;color:#999;padding:2px 5px;background:rgba(0,0,0,0.5);">' +
+          'Drilling into Side ' + escapeHtml(fl) + ' — A (left) → B (right)</div>' +
+          calloutHtml;
+        rightCol.appendChild(imgWrap);
+      }
+
+      // Hole table — compact layout
+      var concGroups = summary.concentric_groups || [];
+      if (concGroups.length > 0) {
+        var table = document.createElement('table');
+        table.className = 'hole-table';
+
+        var thead = document.createElement('thead');
+        thead.innerHTML =
+          '<tr>' +
+          '<th>Grp</th>' +
+          '<th>Diameter</th>' +
+          '<th>Depth</th>' +
+          '<th>Type</th>' +
+          '<th>Tap / Clr</th>' +
+          '<th>Side</th>' +
+          '<th>End A</th>' +
+          '<th>End B</th>' +
+          '<th>Position</th>' +
+          '</tr>';
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        var groupColors = ['transparent', 'rgba(255,255,255,0.03)'];
+
+        for (var gi = 0; gi < concGroups.length; gi++) {
+          var cg = concGroups[gi];
+          var holes = cg.holes || [];
+          var typeLabel = cg.hole_type_label || '';
+          var typeBadgeClass = 'hole-through';
+          if (typeLabel === 'One Side') typeBadgeClass = 'hole-blind';
+          else if (typeLabel === 'Counterbored') typeBadgeClass = 'hole-counterbored';
+
+          for (var hi = 0; hi < holes.length; hi++) {
+            var h = holes[hi];
+            var tr = document.createElement('tr');
+            tr.style.background = groupColors[gi % 2];
+            tr.style.cursor = 'pointer';
+            tr.addEventListener('click', (function(tokens, tableEl, trEl) {
+              return function() {
+                highlightRow(tableEl, trEl, 'hole-row-active');
+                sendToPython('highlight_hole', { face_tokens: tokens });
+              };
+            })(h.face_tokens || [], table, tr));
+
+            // Position: centered or offset
+            var posLabel = '-';
+            if (h.cross_offset_mm != null && h.face_width_mm != null && h.face_width_mm > 0) {
+              var absOffset = Math.abs(h.cross_offset_mm);
+              if (absOffset < 0.5) {
+                posLabel = '<span style="color:#4caf50;">Centered</span>';
+              } else {
+                var halfW = h.face_width_mm / 2;
+                var sideA = (halfW - h.cross_offset_mm);
+                var sideB = (halfW + h.cross_offset_mm);
+                posLabel = fmtDim(Math.min(sideA, sideB)) + '/' + fmtDim(Math.max(sideA, sideB)) + ' ' + suffix;
+              }
+            }
+
+            tr.innerHTML =
+              '<td><span class="hole-group-badge ' + typeBadgeClass + '">' + (gi + 1) + '</span></td>' +
+              '<td><strong>' + fmtDim(h.diameter_mm) + ' ' + suffix + '</strong></td>' +
+              '<td>' + (h.depth_mm != null ? fmtDim(h.depth_mm) + ' ' + suffix : '-') + '</td>' +
+              '<td><span class="hole-group-badge ' + typeBadgeClass + '">' + escapeHtml(typeLabel) + '</span></td>' +
+              '<td>' + (h.thread_hint ? '<span class="hole-thread-hint">' + escapeHtml(h.thread_hint) + '</span>' : '-') + '</td>' +
+              '<td><span class="hole-face-badge">' + escapeHtml(h.face_label || '') + '</span></td>' +
+              '<td>' + fmtDim(h.distance_from_end_a_mm) + '</td>' +
+              '<td>' + fmtDim(h.distance_from_end_b_mm) + '</td>' +
+              '<td>' + posLabel + '</td>';
+            tbody.appendChild(tr);
+          }
+        }
+        table.appendChild(tbody);
+        leftCol.appendChild(table);
+      }
+
+      flexRow.appendChild(leftCol);
+      if (faceLabels.length > 0) {
+        flexRow.appendChild(rightCol);
+      }
+      group.appendChild(flexRow);
+
+      return group;
+    }
+
+    function renderWeldStepRow(plan, step) {
+      var weldId = plan.weld_id;
+      var stepIndex = step.step_index;
+      var isSub = step.is_sub_assembly;
+
+      var row = document.createElement('div');
+      row.className = 'weld-step';
+      row.dataset.weldId = weldId;
+      row.dataset.stepIndex = String(stepIndex);
+
+      // Drag handle
+      var handle = document.createElement('span');
+      handle.className = 'drag-handle';
+      handle.innerHTML = '&#9776;';
+      handle.title = 'Drag to reorder';
+      row.appendChild(handle);
+
+      // Step number
+      var num = document.createElement('span');
+      num.className = 'step-num';
+      num.textContent = (stepIndex + 1) + '.';
+      row.appendChild(num);
+
+      // Body name (click to highlight, shift+click for cumulative up to this step)
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'step-body-name' + (isSub ? ' is-sub-assembly' : '');
+      nameSpan.textContent = step.body_name || '';
+      nameSpan.title = isSub
+        ? 'Sub-assembly — click to highlight all bodies'
+        : 'Click to highlight · Shift+click to highlight this + all above';
+      nameSpan.addEventListener('click', (function(wid, si, rowEl) {
+        return function(e) {
+          // Highlight the row in the UI
+          var card = rowEl.closest('.weld-card');
+          if (card) highlightRow(card, rowEl, 'weld-step-active');
+          sendToPython('highlight_weld_step', {
+            weld_id: wid,
+            step_index: si,
+            cumulative: !!e.shiftKey
+          });
+        };
+      })(weldId, stepIndex, row));
+      row.appendChild(nameSpan);
+
+      // Material / dims pill
+      if (!isSub) {
+        var meta = document.createElement('span');
+        meta.className = 'step-meta-pill';
+        var parts = [];
+        if (step.material_name) parts.push(step.material_name);
+        var dimsLabel = weldStepDimsLabel(step);
+        if (dimsLabel) parts.push(dimsLabel);
+        meta.textContent = parts.join(' | ');
+        row.appendChild(meta);
+      }
+
+      // Description input
+      var descInput = document.createElement('input');
+      descInput.type = 'text';
+      descInput.className = 'step-desc-input';
+      descInput.placeholder = 'Notes (weld type, amps…)';
+      descInput.value = step.description || '';
+      descInput.title = 'Step notes (e.g. MIG, 120A, tack first)';
+      descInput.addEventListener('change', (function(wid, si) {
+        return function(e) {
+          sendToPython('weld_update_description', { weld_id: wid, step_index: si, description: e.target.value });
+        };
+      })(weldId, stepIndex));
+      row.appendChild(descInput);
+
+      // Preview button
+      var prevBtn = document.createElement('button');
+      prevBtn.className = 'step-preview-btn';
+      prevBtn.textContent = '&#128065;';
+      prevBtn.title = 'Preview cumulative weld progress up to this step';
+      prevBtn.addEventListener('click', (function(wid, si) {
+        return function() { sendToPython('weld_preview_step', { weld_id: wid, step_index: si }); };
+      })(weldId, stepIndex));
+      row.appendChild(prevBtn);
+
+      // Remove button (only if >1 step)
+      if ((plan.steps || []).length > 1) {
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'step-remove-btn';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = 'Remove this step';
+        removeBtn.addEventListener('click', (function(wid, si) {
+          return function() { sendToPython('weld_remove_body', { weld_id: wid, step_index: si }); };
+        })(weldId, stepIndex));
+        row.appendChild(removeBtn);
+      }
+
+      // Mouse-based drag reorder (replaces HTML5 drag-and-drop which has
+      // issues in Fusion 360's CEF browser).  Only the drag handle initiates.
+      handle.addEventListener('mousedown', (function(wid, si, rowEl) {
+        return function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var stepsList = document.getElementById('weld-steps-' + wid);
+          if (!stepsList) return;
+          var rows = stepsList.querySelectorAll('.weld-step');
+          var fromIdx = si;
+          var targetIdx = fromIdx;
+          var startY = e.clientY;
+          rowEl.classList.add('drag-active');
+
+          function clearIndicators() {
+            for (var ci = 0; ci < rows.length; ci++) {
+              rows[ci].classList.remove('drag-insert-above', 'drag-insert-below');
+            }
+          }
+
+          function onMouseMove(ev) {
+            // Determine which row the cursor is over
+            var found = -1;
+            for (var ri = 0; ri < rows.length; ri++) {
+              var rect = rows[ri].getBoundingClientRect();
+              if (ev.clientY >= rect.top && ev.clientY < rect.bottom) {
+                found = ri;
+                break;
+              }
+            }
+            if (found < 0) return;
+            clearIndicators();
+            targetIdx = found;
+            if (found !== fromIdx) {
+              // Show insertion indicator
+              if (found < fromIdx) {
+                rows[found].classList.add('drag-insert-above');
+              } else {
+                rows[found].classList.add('drag-insert-below');
+              }
+            }
+          }
+
+          function onMouseUp(ev) {
+            document.removeEventListener('mousemove', onMouseMove, true);
+            document.removeEventListener('mouseup', onMouseUp, true);
+            rowEl.classList.remove('drag-active');
+            clearIndicators();
+
+            if (targetIdx === fromIdx) return;
+            var weld = findWeldPlan(wid);
+            if (!weld) return;
+            var newOrder = [];
+            for (var oi = 0; oi < weld.steps.length; oi++) { newOrder.push(oi); }
+            newOrder.splice(fromIdx, 1);
+            newOrder.splice(targetIdx, 0, fromIdx);
+            // Optimistic local update
+            var reordered = newOrder.map(function(idx) { return weld.steps[idx]; });
+            for (var ri = 0; ri < reordered.length; ri++) { reordered[ri].step_index = ri; }
+            weld.steps = reordered;
+            renderWeldTab();
+            sendToPython('weld_reorder_steps', { weld_id: wid, step_order: newOrder });
+          }
+
+          document.addEventListener('mousemove', onMouseMove, true);
+          document.addEventListener('mouseup', onMouseUp, true);
+        };
+      })(weldId, stepIndex, row));
+
+      return row;
     }
 
     /* ============================================================
@@ -1762,6 +2942,7 @@
       renderStockSummary();
       renderDimensionSummary();
       renderFastenerTab();
+      renderDrillTab();
       renderWeldTab();
       renderPrintedTab();
       renderSourcedTab();
@@ -1780,6 +2961,105 @@
       document.addEventListener('DOMContentLoaded', requestInitData);
     }
     window.onload = requestInitData;
+  </script>
+
+  <!-- Image lightbox modal with zoom & pan -->
+  <div id="image-lightbox" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+       background:rgba(0,0,0,0.92);z-index:9999;overflow:hidden;">
+    <div id="lightbox-hint" style="position:absolute;top:12px;left:50%;transform:translateX(-50%);
+         color:#aaa;font-size:11px;z-index:10001;pointer-events:none;
+         background:rgba(0,0,0,0.6);padding:4px 12px;border-radius:4px;">
+      Scroll to zoom &bull; Drag to pan &bull; Esc / click background to close
+    </div>
+    <div id="lightbox-close" style="position:absolute;top:10px;right:16px;color:#ccc;font-size:28px;
+         cursor:pointer;z-index:10001;line-height:1;" onclick="window._closeLightbox()">&times;</div>
+    <img id="lightbox-img" src="" alt="Expanded view"
+         style="position:absolute;cursor:grab;border-radius:4px;
+                box-shadow:0 4px 20px rgba(0,0,0,0.6);user-select:none;
+                transform-origin:0 0;" draggable="false" />
+  </div>
+  <script>
+  (function() {
+    var modal = document.getElementById('image-lightbox');
+    var img = document.getElementById('lightbox-img');
+    var scale = 1, panX = 0, panY = 0;
+    var dragging = false, dragStartX = 0, dragStartY = 0, startPanX = 0, startPanY = 0;
+
+    function updateTransform() {
+      img.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+    }
+
+    function resetView() {
+      scale = 1; panX = 0; panY = 0;
+      // Centre the image
+      var mw = modal.clientWidth, mh = modal.clientHeight;
+      var iw = img.naturalWidth, ih = img.naturalHeight;
+      var fitScale = Math.min(mw * 0.92 / iw, mh * 0.92 / ih, 1);
+      scale = fitScale;
+      panX = (mw - iw * scale) / 2;
+      panY = (mh - ih * scale) / 2;
+      img.style.width = iw + 'px';
+      img.style.height = ih + 'px';
+      updateTransform();
+    }
+
+    window._openLightbox = function(src) {
+      img.src = src;
+      modal.style.display = 'block';
+      // Wait for image to load to get natural dimensions
+      if (img.naturalWidth > 0) { resetView(); }
+      else { img.onload = function() { resetView(); img.onload = null; }; }
+    };
+
+    window._closeLightbox = function() {
+      modal.style.display = 'none';
+      dragging = false;
+    };
+
+    // Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.style.display !== 'none') window._closeLightbox();
+    });
+
+    // Click on background (not on image) to close
+    modal.addEventListener('mousedown', function(e) {
+      if (e.target === modal) window._closeLightbox();
+    });
+
+    // Mouse wheel zoom
+    modal.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      var rect = modal.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var my = e.clientY - rect.top;
+      // Zoom towards mouse position
+      var oldScale = scale;
+      var zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      scale = Math.max(0.1, Math.min(scale * zoomFactor, 20));
+      // Adjust pan so the point under the mouse stays under the mouse
+      panX = mx - (mx - panX) * (scale / oldScale);
+      panY = my - (my - panY) * (scale / oldScale);
+      updateTransform();
+    }, { passive: false });
+
+    // Drag to pan
+    img.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      dragging = true;
+      dragStartX = e.clientX; dragStartY = e.clientY;
+      startPanX = panX; startPanY = panY;
+      img.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      panX = startPanX + (e.clientX - dragStartX);
+      panY = startPanY + (e.clientY - dragStartY);
+      updateTransform();
+    });
+    document.addEventListener('mouseup', function() {
+      if (dragging) { dragging = false; img.style.cursor = 'grab'; }
+    });
+  })();
   </script>
 </body>
 </html>

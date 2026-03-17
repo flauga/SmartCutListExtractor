@@ -29,10 +29,23 @@ Actions the HTML sends to Python
   'export_fasteners'    {settings}                       → write fastener CSV to disk
   'export_step'         {settings}                       → write STEP files for 3D prints
   'export_sourced'      {settings}                       → write sourced components CSV
+  'weld_reorder_steps'  {weld_id, step_order: [...]}     → reorder steps in a weld assembly
+  'weld_add_body'       {weld_id, group_id, body_index}  → add a body to a weld assembly
+  'weld_remove_body'    {weld_id, step_index}            → remove a step from a weld assembly
+  'weld_create_assembly' {name, group_ids}               → create a new manual weld assembly
+  'weld_delete_assembly' {weld_id}                       → delete a weld assembly
+  'weld_update_description' {weld_id, step_index, desc}  → update step description
+  'weld_update_notes'   {weld_id, notes}                 → update assembly-level notes
+  'weld_nest_assembly'  {child_weld_id, parent_weld_id}  → nest a weld inside another
+  'weld_unnest_assembly' {child_weld_id}                 → promote a nested weld to top-level
+  'generate_weld_plan'  {settings}                       → generate weld plan document
+  'highlight_weld_step' {weld_id, step_index}            → highlight step body in viewport
+  'weld_preview_step'   {weld_id, step_index}            → preview cumulative weld progress
 
 Actions Python sends to HTML
 -----------------------------
-  'initData'            {groups: [...], part_types: [...], weld_assemblies: [...]}
+  'initData'            {groups: [...], part_types: [...], weld_assemblies: [...], weld_plans: [...]}
+  'updateWeldPlans'     [...]                             → push updated weld plan state
 """
 
 from __future__ import annotations
@@ -51,6 +64,8 @@ import adsk.fusion
 from .classifier import PartType
 from . import export_cutlist
 from . import export_dxf
+from . import hole_detection
+from . import weld_plan_generator
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +77,8 @@ _ui:      adsk.core.UserInterface = None
 _palette: adsk.core.Palette       = None
 _handlers: list                   = []
 _groups:   list                   = []   # current grouped cut list data
+_weld_plans: list                 = []   # enhanced weld assembly data with ordering
+_hole_summaries: list             = []   # hole data for channel bodies
 _palette_settings: dict           = {}
 logger = logging.getLogger(__name__)
 
@@ -110,12 +127,20 @@ def _dims_key(bb_mm, tolerance_mm: float) -> Optional[tuple]:
         return None
 
 
+# Regex that matches Fusion 360's default body name pattern: "Body", "Body1", "Body12", etc.
+_DEFAULT_BODY_RE = re.compile(r'^Body\d*$', re.IGNORECASE)
+
+
 def _pick_display_name(feat: dict) -> str:
     """Choose the most informative name for a group's display_name.
 
     Content-library fasteners have generic body names ("Body", "Body1")
     but their component_path / component_name carries the full description
     (e.g. "Broached Hexagon Socket Head Cap Screw M10x1.5x50:1").
+
+    For standard parts whose body name is still a Fusion default
+    ("Body", "Body1", etc.) the component name is prepended so filenames
+    and palette rows are meaningful (e.g. "Frame_Tube_Body1").
     """
     if feat.get('is_content_library_fastener') or feat.get('is_sourced_component'):
         # External components have generic body names ("Body", "Body1")
@@ -130,8 +155,17 @@ def _pick_display_name(feat: dict) -> str:
         comp = feat.get('component_name', '')
         if comp:
             return comp
-    # Standard parts: prefer body_name, fall back to component_name
-    return feat.get('body_name') or feat.get('component_name') or 'Unknown'
+    # Standard parts: prefer body_name, fall back to component_name.
+    # If the body carries a Fusion default name ("Body1") prefix it with
+    # the component name so it is meaningful in the cut list & filenames.
+    body_name = feat.get('body_name', '')
+    comp_name = feat.get('component_name', '')
+    if not body_name:
+        return comp_name or 'Unknown'
+    if _DEFAULT_BODY_RE.match(body_name.strip()):
+        prefix = comp_name.strip()
+        return '{0}_{1}'.format(prefix, body_name.strip()) if prefix else body_name
+    return body_name
 
 
 def group_classified_bodies(
@@ -165,7 +199,9 @@ def group_classified_bodies(
                 'dimensions_mm':        None,
                 'quantity':             1,
                 'include':              False,
-                'bodies':               [feat.get('body_name', '')],
+                'bodies':               [_resolve_body_display_name(
+                                            feat.get('body_name', ''),
+                                            feat.get('component_name', ''))],
                 'body_token':           feat.get('body_token', ''),
                 'body_tokens':          [feat.get('body_token', '')] if feat.get('body_token') else [],
                 'override_type':        None,
@@ -201,7 +237,8 @@ def group_classified_bodies(
         if key in group_map:
             g = groups[group_map[key]]
             g['quantity'] += 1
-            g['bodies'].append(feat.get('body_name', ''))
+            g['bodies'].append(_resolve_body_display_name(
+                feat.get('body_name', ''), feat.get('component_name', '')))
             if feat.get('body_token'):
                 g['body_tokens'].append(feat.get('body_token'))
         else:
@@ -219,7 +256,9 @@ def group_classified_bodies(
                 'dimensions_mm':        sorted(bb) if bb else None,
                 'quantity':             1,
                 'include':              True,
-                'bodies':               [feat.get('body_name', '')],
+                'bodies':               [_resolve_body_display_name(
+                                            feat.get('body_name', ''),
+                                            feat.get('component_name', ''))],
                 'body_token':           feat.get('body_token', ''),
                 'body_tokens':          [feat.get('body_token', '')] if feat.get('body_token') else [],
                 'override_type':        None,
@@ -270,13 +309,152 @@ def _detect_weld_assemblies(groups: list) -> list:
     return welds
 
 
+def _resolve_body_display_name(body_name: str, component_name: str) -> str:
+    """Prefix default-named bodies (Body, Body1, …) with their parent component name.
+
+    Fusion 360 assigns generic names like "Body1" when the user has not renamed a body.
+    These are meaningless in isolation, so we prepend the component name to give context
+    (e.g. "Frame_Tube_50x50_Body1").
+    """
+    stripped = (body_name or '').strip()
+    if not stripped:
+        return component_name or 'Unknown'
+    if _DEFAULT_BODY_RE.match(stripped):
+        prefix = (component_name or '').strip()
+        return '{0}_{1}'.format(prefix, stripped) if prefix else stripped
+    return stripped
+
+
+def _build_weld_plan_data(groups: list) -> list:
+    """
+    Build enhanced weld assembly data with per-body steps and nesting.
+
+    Each weld assembly gets an ordered ``steps`` list that defines the welding
+    sequence.  Bodies are resolved from ``_groups`` so that each step carries
+    the body token, material, and dimensions needed for viewport capture.
+    """
+    raw_welds = _detect_weld_assemblies(groups)
+    weld_plans: list = []
+
+    for i, raw in enumerate(raw_welds):
+        steps: list = []
+        for gid in raw['group_ids']:
+            group = _find_group(gid)
+            if not group:
+                continue
+            bodies = group.get('bodies', [])
+            tokens = group.get('body_tokens', [])
+            grp_component = group.get('component_name') or raw['component_name']
+            for bi, bname in enumerate(bodies):
+                token = tokens[bi] if bi < len(tokens) else ''
+                steps.append({
+                    'step_index': len(steps),
+                    'body_name': _resolve_body_display_name(bname, grp_component),
+                    'body_token': token,
+                    'group_id': gid,
+                    'body_index': bi,
+                    'material_name': group.get('material_name', 'Unknown'),
+                    'dimensions_mm': group.get('dimensions_mm'),
+                    'is_sub_assembly': False,
+                    'sub_assembly_weld_id': None,
+                    'description': '',
+                })
+
+        weld_plans.append({
+            'weld_id': 'w_{}'.format(i),
+            'component_path': raw['component_path'],
+            'component_name': raw['component_name'],
+            'parent_weld_id': None,
+            'children_weld_ids': [],
+            'steps': steps,
+            'notes': '',
+            'is_manual': False,
+            'user_modified': False,
+        })
+
+    _resolve_nesting(weld_plans)
+    return weld_plans
+
+
+def _resolve_nesting(weld_plans: list) -> None:
+    """Detect parent/child relationships from component_path hierarchy.
+
+    If ``path_a`` is a strict prefix of ``path_b`` (separated by ``/``),
+    then weld B is a child of weld A.  A composite sub-assembly step is
+    inserted into A's steps list so the user can position the entire nested
+    assembly within the parent sequence.
+    """
+    by_path = {w['component_path']: w for w in weld_plans}
+
+    for child in weld_plans:
+        cpath = child['component_path']
+        # Walk up the path looking for a parent weld
+        parts = cpath.rsplit('/', 1)
+        while len(parts) == 2:
+            parent_path = parts[0]
+            if parent_path in by_path:
+                parent = by_path[parent_path]
+                if parent['weld_id'] != child['weld_id']:
+                    child['parent_weld_id'] = parent['weld_id']
+                    if child['weld_id'] not in parent['children_weld_ids']:
+                        parent['children_weld_ids'].append(child['weld_id'])
+                    # Insert a composite step into the parent
+                    already = any(
+                        s.get('sub_assembly_weld_id') == child['weld_id']
+                        for s in parent['steps']
+                    )
+                    if not already:
+                        parent['steps'].append({
+                            'step_index': len(parent['steps']),
+                            'body_name': child['component_name'] + ' (sub-assembly)',
+                            'body_token': '',
+                            'group_id': '',
+                            'material_name': '',
+                            'dimensions_mm': None,
+                            'is_sub_assembly': True,
+                            'sub_assembly_weld_id': child['weld_id'],
+                            'description': '',
+                        })
+                    break
+            parts = parent_path.rsplit('/', 1)
+
+
+def _find_weld(weld_id: str) -> Optional[dict]:
+    """Look up a weld plan by ID."""
+    for w in _weld_plans:
+        if w['weld_id'] == weld_id:
+            return w
+    return None
+
+
+def _push_weld_plans() -> None:
+    """Send updated weld plan data to the HTML palette."""
+    if _palette is None:
+        return
+    try:
+        _palette.sendInfoToHTML(
+            'updateWeldPlans', json.dumps(_weld_plans, default=str)
+        )
+    except Exception:
+        logger.exception('Failed to push weld plan update to palette')
+
+
+def _next_weld_id() -> str:
+    """Generate the next available weld_id."""
+    existing = {w['weld_id'] for w in _weld_plans}
+    idx = len(_weld_plans)
+    while 'w_{}'.format(idx) in existing:
+        idx += 1
+    return 'w_{}'.format(idx)
+
+
 # ---------------------------------------------------------------------------
 # Palette lifecycle
 # ---------------------------------------------------------------------------
 
 def start(classified_features: list, palette_settings: Optional[dict] = None) -> None:
     """Create the review palette and populate it with grouped body data."""
-    global _app, _ui, _palette, _groups, _handlers, _palette_settings
+    global _app, _ui, _palette, _groups, _weld_plans, _hole_summaries, _handlers, _palette_settings
 
     try:
         _app = adsk.core.Application.get()
@@ -290,6 +468,12 @@ def start(classified_features: list, palette_settings: Optional[dict] = None) ->
                 _palette_settings.get('dimension_tolerance_mm', _DEFAULT_DIM_TOLERANCE)
             ),
         )
+        _weld_plans = _build_weld_plan_data(_groups)
+
+        # Detect holes on channel bodies for the weld-plan drilling section
+        _hole_summaries = hole_detection.detect_holes_on_channels(_groups)
+        if _hole_summaries:
+            logger.info('Detected holes on %d channel bodies', len(_hole_summaries))
 
         # Remove any stale palette from a previous invocation
         existing = _ui.palettes.itemById(PALETTE_ID)
@@ -330,7 +514,7 @@ def start(classified_features: list, palette_settings: Optional[dict] = None) ->
 
 def stop() -> None:
     """Destroy the palette and release all handler references."""
-    global _palette, _handlers, _groups, _palette_settings
+    global _palette, _handlers, _groups, _weld_plans, _hole_summaries, _palette_settings
     try:
         if _palette:
             _palette.deleteMe()
@@ -340,6 +524,8 @@ def stop() -> None:
     finally:
         _handlers = []
         _groups   = []
+        _weld_plans = []
+        _hole_summaries = []
         _palette_settings = {}
 
 
@@ -387,6 +573,8 @@ def _palette_payload() -> dict:
             PartType.UNKNOWN,
         ],
         'weld_assemblies': _detect_weld_assemblies(_groups),
+        'weld_plans': _weld_plans,
+        'hole_summaries': _hole_summaries,
         'include_fasteners': bool(_palette_settings.get('include_fasteners', True)),
     }
 
@@ -527,11 +715,26 @@ def _handle_configure_sheet_metal(data: dict) -> None:
         _ui.messageBox('Only sheet metal groups need flat-pattern configuration.')
         return
 
+    saved_visibility = []  # type: list
     try:
         _highlight_group(group)
         body = export_dxf.resolve_body_for_part(group)
         if body is None:
             raise RuntimeError('Unable to resolve the selected Fusion body')
+
+        # ── Isolate the target body so the user can see only it ──────
+        design = adsk.fusion.Design.cast(_app.activeProduct) if _app else None
+        if design:
+            for comp in design.allComponents:
+                for bi in range(comp.bRepBodies.count):
+                    b = comp.bRepBodies.item(bi)
+                    saved_visibility.append((b, b.isVisible))
+                    b.isVisible = (b.entityToken == body.entityToken)
+            try:
+                _app.activeViewport.refresh()
+                _app.activeViewport.fit()
+            except Exception:
+                pass
 
         palette_was_visible = bool(_palette and _palette.isVisible)
         if _palette:
@@ -571,6 +774,18 @@ def _handle_configure_sheet_metal(data: dict) -> None:
         _ui.messageBox(
             'Sheet metal configuration failed:\n{}'.format(traceback.format_exc())
         )
+    finally:
+        # ── Restore original body visibility ─────────────────────────
+        for b, was_visible in saved_visibility:
+            try:
+                b.isVisible = was_visible
+            except Exception:
+                pass
+        if saved_visibility:
+            try:
+                _app.activeViewport.refresh()
+            except Exception:
+                pass
 
 
 def _handle_export_fasteners(data: dict) -> None:
@@ -627,6 +842,550 @@ def _handle_export_package(data: dict) -> None:
     _export_package(data.get('settings', {}))
 
 
+# ---------------------------------------------------------------------------
+# Weld plan handlers
+# ---------------------------------------------------------------------------
+
+def _handle_weld_reorder_steps(data: dict) -> None:
+    """Reorder steps in a weld assembly via a new index list."""
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    step_order = data.get('step_order')
+    if not step_order or len(step_order) != len(weld['steps']):
+        return
+    try:
+        reordered = [weld['steps'][i] for i in step_order]
+        for idx, step in enumerate(reordered):
+            step['step_index'] = idx
+        weld['steps'] = reordered
+        weld['user_modified'] = True
+        _push_weld_plans()
+    except (IndexError, TypeError):
+        logger.exception('Invalid step_order for weld %s', data.get('weld_id'))
+
+
+def _handle_weld_add_body(data: dict) -> None:
+    """Add a body from a group to a weld assembly."""
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    group = _find_group(data.get('group_id', ''))
+    if not group:
+        return
+    body_index = data.get('body_index', 0)
+    bodies = group.get('bodies', [])
+    tokens = group.get('body_tokens', [])
+    if body_index < 0 or body_index >= len(bodies):
+        return
+    token = tokens[body_index] if body_index < len(tokens) else ''
+    # Prevent adding a body that is already part of any weld assembly
+    if token:
+        for wp in _weld_plans:
+            for s in wp.get('steps', []):
+                if s.get('body_token') == token and not s.get('is_sub_assembly'):
+                    return  # silently reject duplicate
+    comp_name = group.get('component_name', '')
+    weld['steps'].append({
+        'step_index': len(weld['steps']),
+        'body_name': _resolve_body_display_name(bodies[body_index], comp_name),
+        'body_token': token,
+        'group_id': group['group_id'],
+        'body_index': body_index,
+        'material_name': group.get('material_name', 'Unknown'),
+        'dimensions_mm': group.get('dimensions_mm'),
+        'is_sub_assembly': False,
+        'sub_assembly_weld_id': None,
+        'description': '',
+    })
+    weld['user_modified'] = True
+    _push_weld_plans()
+
+
+def _handle_weld_remove_body(data: dict) -> None:
+    """Remove a step from a weld assembly."""
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    step_index = data.get('step_index', -1)
+    if step_index < 0 or step_index >= len(weld['steps']):
+        return
+    if len(weld['steps']) <= 1:
+        return  # don't allow removing the last step
+    weld['steps'].pop(step_index)
+    for idx, step in enumerate(weld['steps']):
+        step['step_index'] = idx
+    weld['user_modified'] = True
+    _push_weld_plans()
+
+
+def _handle_weld_create_assembly(data: dict) -> None:
+    """Create a new manual weld assembly from selected groups."""
+    name = data.get('name', '').strip()
+    group_ids = data.get('group_ids') or []
+    if not name or not group_ids:
+        return
+    steps: list = []
+    for gid in group_ids:
+        group = _find_group(gid)
+        if not group:
+            continue
+        bodies = group.get('bodies', [])
+        tokens = group.get('body_tokens', [])
+        for bi, bname in enumerate(bodies):
+            token = tokens[bi] if bi < len(tokens) else ''
+            steps.append({
+                'step_index': len(steps),
+                'body_name': bname,
+                'body_token': token,
+                'group_id': gid,
+                'material_name': group.get('material_name', 'Unknown'),
+                'dimensions_mm': group.get('dimensions_mm'),
+                'is_sub_assembly': False,
+                'sub_assembly_weld_id': None,
+                'description': '',
+            })
+    if not steps:
+        return
+    _weld_plans.append({
+        'weld_id': _next_weld_id(),
+        'component_path': '',
+        'component_name': name,
+        'parent_weld_id': None,
+        'children_weld_ids': [],
+        'steps': steps,
+        'notes': '',
+        'is_manual': True,
+        'user_modified': True,
+    })
+    _push_weld_plans()
+
+
+def _handle_weld_delete_assembly(data: dict) -> None:
+    """Delete a weld assembly."""
+    global _weld_plans
+    weld_id = data.get('weld_id', '')
+    weld = _find_weld(weld_id)
+    if not weld:
+        return
+    # Remove from parent if nested
+    if weld['parent_weld_id']:
+        parent = _find_weld(weld['parent_weld_id'])
+        if parent:
+            parent['children_weld_ids'] = [
+                c for c in parent['children_weld_ids'] if c != weld_id
+            ]
+            parent['steps'] = [
+                s for s in parent['steps']
+                if s.get('sub_assembly_weld_id') != weld_id
+            ]
+            for idx, step in enumerate(parent['steps']):
+                step['step_index'] = idx
+    _weld_plans = [w for w in _weld_plans if w['weld_id'] != weld_id]
+    _push_weld_plans()
+
+
+def _handle_weld_update_description(data: dict) -> None:
+    """Update the description on a weld step."""
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    step_index = data.get('step_index', -1)
+    if step_index < 0 or step_index >= len(weld['steps']):
+        return
+    weld['steps'][step_index]['description'] = data.get('description', '')
+    weld['user_modified'] = True
+
+
+def _handle_weld_update_notes(data: dict) -> None:
+    """Update assembly-level notes."""
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    weld['notes'] = data.get('notes', '')
+
+
+def _handle_weld_nest_assembly(data: dict) -> None:
+    """Nest a weld assembly inside a parent."""
+    child = _find_weld(data.get('child_weld_id', ''))
+    parent = _find_weld(data.get('parent_weld_id', ''))
+    if not child or not parent or child['weld_id'] == parent['weld_id']:
+        return
+    # Prevent circular nesting
+    if parent['parent_weld_id'] == child['weld_id']:
+        return
+    # Remove from old parent
+    if child['parent_weld_id']:
+        old_parent = _find_weld(child['parent_weld_id'])
+        if old_parent:
+            old_parent['children_weld_ids'] = [
+                c for c in old_parent['children_weld_ids']
+                if c != child['weld_id']
+            ]
+            old_parent['steps'] = [
+                s for s in old_parent['steps']
+                if s.get('sub_assembly_weld_id') != child['weld_id']
+            ]
+            for idx, step in enumerate(old_parent['steps']):
+                step['step_index'] = idx
+    child['parent_weld_id'] = parent['weld_id']
+    if child['weld_id'] not in parent['children_weld_ids']:
+        parent['children_weld_ids'].append(child['weld_id'])
+    # Add composite step
+    already = any(
+        s.get('sub_assembly_weld_id') == child['weld_id']
+        for s in parent['steps']
+    )
+    if not already:
+        parent['steps'].append({
+            'step_index': len(parent['steps']),
+            'body_name': child['component_name'] + ' (sub-assembly)',
+            'body_token': '',
+            'group_id': '',
+            'material_name': '',
+            'dimensions_mm': None,
+            'is_sub_assembly': True,
+            'sub_assembly_weld_id': child['weld_id'],
+            'description': '',
+        })
+    _push_weld_plans()
+
+
+def _handle_weld_unnest_assembly(data: dict) -> None:
+    """Remove a weld assembly from its parent, promoting to top-level."""
+    child = _find_weld(data.get('child_weld_id', ''))
+    if not child or not child['parent_weld_id']:
+        return
+    parent = _find_weld(child['parent_weld_id'])
+    if parent:
+        parent['children_weld_ids'] = [
+            c for c in parent['children_weld_ids']
+            if c != child['weld_id']
+        ]
+        parent['steps'] = [
+            s for s in parent['steps']
+            if s.get('sub_assembly_weld_id') != child['weld_id']
+        ]
+        for idx, step in enumerate(parent['steps']):
+            step['step_index'] = idx
+    child['parent_weld_id'] = None
+    _push_weld_plans()
+
+
+def _handle_generate_weld_plan(data: dict) -> None:
+    """Generate the weld plan document with progressive viewport screenshots."""
+    if not _weld_plans:
+        _ui.messageBox('No weld assemblies to generate a plan for.', 'Weld Plan')
+        return
+    try:
+        folder_dlg = _ui.createFolderDialog()
+        folder_dlg.title = 'Select Weld Plan Output Folder'
+        if folder_dlg.showDialog() != adsk.core.DialogResults.DialogOK:
+            return
+        output_dir = folder_dlg.folder
+        project_name = ''
+        if _app and _app.activeDocument:
+            project_name = _app.activeDocument.name
+        settings = {
+            'project_name': project_name or 'SmartCutList',
+            'unit': _palette_settings.get('default_units', 'mm'),
+        }
+        result_path = weld_plan_generator.generate_weld_plan(
+            _weld_plans, output_dir, settings, groups=_groups
+        )
+        _ui.messageBox(
+            'Weld plan generated:\n{}'.format(result_path),
+            'Weld Plan Complete',
+        )
+    except Exception:
+        logger.exception('Weld plan generation failed')
+        _ui.messageBox(
+            'Weld plan generation failed:\n{}'.format(traceback.format_exc())
+        )
+
+
+def _handle_highlight_weld_step(data: dict) -> None:
+    """Highlight a specific step's body in the viewport.
+
+    When ``cumulative`` is True (Shift+click), highlights **all** steps
+    from index 0 up to and including the requested step, so the user can
+    see the progressive weld state.
+    """
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    step_index = data.get('step_index', -1)
+    if step_index < 0 or step_index >= len(weld['steps']):
+        return
+    cumulative = data.get('cumulative', False)
+    try:
+        _ui.activeSelections.clear()
+    except Exception:
+        pass
+
+    # Decide which steps to highlight
+    if cumulative:
+        steps_to_highlight = weld['steps'][: step_index + 1]
+    else:
+        steps_to_highlight = [weld['steps'][step_index]]
+
+    for step in steps_to_highlight:
+        if step.get('is_sub_assembly'):
+            sub = _find_weld(step.get('sub_assembly_weld_id', ''))
+            if sub:
+                for s in sub['steps']:
+                    _select_body_token(s.get('body_token', ''))
+        else:
+            _select_body_token(step.get('body_token', ''))
+
+    try:
+        _app.activeViewport.refresh()
+    except Exception:
+        pass
+
+
+def _select_body_token(token: str) -> None:
+    """Resolve a body token and add it to the active selection."""
+    if not token:
+        return
+    body = export_dxf.resolve_body_token(token)
+    if body:
+        try:
+            _ui.activeSelections.add(body)
+        except Exception:
+            pass
+
+
+def _handle_weld_preview_step(data: dict) -> None:
+    """Preview cumulative weld progress up to a given step in the viewport."""
+    weld = _find_weld(data.get('weld_id', ''))
+    if not weld:
+        return
+    up_to = data.get('step_index', -1)
+    if up_to < 0 or up_to >= len(weld['steps']):
+        return
+    try:
+        weld_plan_generator.preview_weld_step(_weld_plans, weld['weld_id'], up_to)
+    except Exception:
+        logger.exception('Weld step preview failed')
+
+
+def _handle_capture_hole_images(data: dict) -> None:
+    """Capture perpendicular hole images for channel bodies and push to HTML."""
+    if not _hole_summaries:
+        return
+    try:
+        folder_dlg = _ui.createFolderDialog()
+        folder_dlg.title = 'Temporary folder for hole images'
+        # Use temp directory instead of asking user
+        import tempfile
+        output_dir = tempfile.mkdtemp(prefix='smartcutlist_holes_')
+        weld_plan_generator.capture_hole_images(_hole_summaries, output_dir)
+        # Push updated summaries (now with face_images) to HTML
+        if _palette:
+            _palette.sendInfoToHTML(
+                'updateHoleImages',
+                json.dumps(_hole_summaries, default=str),
+            )
+    except Exception:
+        logger.exception('Hole image capture failed')
+        if _ui:
+            _ui.messageBox('Hole image capture failed:\n{}'.format(traceback.format_exc()))
+
+
+def _handle_highlight_hole(data: dict) -> None:
+    """Highlight hole faces in the viewport for a specific hole."""
+    face_tokens = data.get('face_tokens', [])
+    if not face_tokens:
+        return
+    try:
+        app = adsk.core.Application.get()
+        design = adsk.fusion.Design.cast(app.activeProduct)
+        _ui.activeSelections.clear()
+        for ft in face_tokens:
+            if not ft:
+                continue
+            try:
+                entities = design.findEntityByToken(ft)
+                if entities:
+                    _ui.activeSelections.add(entities[0])
+            except Exception:
+                pass
+    except Exception:
+        logger.debug('Highlight hole failed')
+
+
+def _handle_export_drill_csv(data: dict) -> None:
+    """Export a standalone drill-list CSV for channel holes."""
+    if not _hole_summaries:
+        _ui.messageBox('No holes detected on channel bodies.', 'Drill Export')
+        return
+    try:
+        file_dlg = _ui.createFileDialog()
+        file_dlg.filter = 'CSV Files (*.csv)'
+        file_dlg.initialFilename = 'DrillList.csv'
+        file_dlg.title = 'Save Drill List as CSV'
+        if file_dlg.showSave() != adsk.core.DialogResults.DialogOK:
+            return
+        filepath = file_dlg.filename
+        settings = data.get('settings', {})
+        export_settings = _export_settings_from_ui(settings)
+        result = export_cutlist.export_drill_csv(
+            _hole_summaries, filepath, export_settings
+        )
+        _ui.messageBox(
+            'Drill list saved to:\n{}'.format(result.filepath),
+            'Export Complete',
+        )
+    except Exception:
+        _ui.messageBox('Drill CSV export error:\n{}'.format(traceback.format_exc()))
+
+
+def _handle_export_dxfs_only(data: dict) -> None:
+    """Export DXF flat patterns only (no CSV)."""
+    try:
+        pending = _sheet_metal_groups_needing_configuration()
+        if pending:
+            names = ', '.join(g.get('display_name', 'Unknown') for g in pending[:5])
+            if len(pending) > 5:
+                names += ', ...'
+            _ui.messageBox(
+                'Configure all included sheet metal groups before exporting DXFs.\n\nPending: {}'.format(names),
+                'Sheet Metal Setup Required',
+            )
+            return
+
+        folder_dlg = _ui.createFolderDialog()
+        folder_dlg.title = 'Select DXF Output Folder'
+        if folder_dlg.showDialog() != adsk.core.DialogResults.DialogOK:
+            return
+
+        output_dir = folder_dlg.folder
+        settings = data.get('settings', {})
+        export_settings = _export_settings_from_ui(settings)
+        dxf_paths = export_dxf.export_dxfs(
+            _groups,
+            output_dir,
+            export_settings.filename_template,
+            {
+                'unit': export_settings.unit,
+                'sheet_metal_only': True,
+                'cross_section_for_profiles': False,
+                'include_bend_lines': False,
+                'include_dimensions': False,
+                'show_summary': False,
+            },
+        )
+        _ui.messageBox(
+            'Exported {} DXF file(s) to:\n{}'.format(len(dxf_paths), output_dir),
+            'DXF Export Complete',
+        )
+    except Exception:
+        logger.exception('DXF-only export failed')
+        _ui.messageBox('DXF export error:\n{}'.format(traceback.format_exc()))
+
+
+def _handle_export_all(data: dict) -> None:
+    """Export all outputs (CSVs, DXFs, STEPs, weld plan) into one folder."""
+    try:
+        folder_dlg = _ui.createFolderDialog()
+        folder_dlg.title = 'Select Output Folder for All Exports'
+        if folder_dlg.showDialog() != adsk.core.DialogResults.DialogOK:
+            return
+
+        output_dir = folder_dlg.folder
+        settings = data.get('settings', {})
+        export_settings = _export_settings_from_ui(settings)
+        base_name = _sanitise_stem(export_settings.project_name or 'SmartCutList')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        exported: list = []
+
+        # 1. Cut list CSV
+        try:
+            csv_path = os.path.join(output_dir, '{}_cut_list_{}.csv'.format(base_name, timestamp))
+            export_cutlist.export_csv(
+                _groups, csv_path, export_settings, hole_summaries=_hole_summaries
+            )
+            exported.append('Cut List CSV')
+        except Exception:
+            logger.exception('Export All: CSV failed')
+
+        # 2. Drill CSV
+        if _hole_summaries:
+            try:
+                drill_path = os.path.join(output_dir, '{}_drill_list_{}.csv'.format(base_name, timestamp))
+                export_cutlist.export_drill_csv(_hole_summaries, drill_path, export_settings)
+                exported.append('Drill List CSV')
+            except Exception:
+                logger.exception('Export All: Drill CSV failed')
+
+        # 3. Fasteners CSV
+        try:
+            fast_path = os.path.join(output_dir, '{}_fasteners_{}.csv'.format(base_name, timestamp))
+            export_cutlist.export_fasteners_csv(_groups, fast_path, export_settings)
+            exported.append('Fasteners CSV')
+        except Exception:
+            logger.debug('Export All: Fasteners CSV skipped (no fasteners or error)')
+
+        # 4. Sourced CSV
+        try:
+            sourced_path = os.path.join(output_dir, '{}_sourced_{}.csv'.format(base_name, timestamp))
+            export_cutlist.export_sourced_csv(_groups, sourced_path, export_settings)
+            exported.append('Sourced CSV')
+        except Exception:
+            logger.debug('Export All: Sourced CSV skipped')
+
+        # 5. DXFs
+        try:
+            dxf_paths = export_dxf.export_dxfs(
+                _groups, output_dir, export_settings.filename_template,
+                {'unit': export_settings.unit, 'sheet_metal_only': True,
+                 'cross_section_for_profiles': False, 'include_bend_lines': False,
+                 'include_dimensions': False, 'show_summary': False},
+            )
+            if dxf_paths:
+                exported.append('{} DXF file(s)'.format(len(dxf_paths)))
+        except Exception:
+            logger.exception('Export All: DXF export failed')
+
+        # 6. STEPs
+        try:
+            step_paths = export_dxf.export_steps(
+                _groups, output_dir, export_settings.filename_template,
+                {'unit': export_settings.unit, 'show_summary': False},
+            )
+            if step_paths:
+                exported.append('{} STEP file(s)'.format(len(step_paths)))
+        except Exception:
+            logger.debug('Export All: STEP export skipped')
+
+        # 7. Weld plan
+        if _weld_plans:
+            try:
+                project_name = ''
+                if _app and _app.activeDocument:
+                    project_name = _app.activeDocument.name
+                weld_settings = {
+                    'project_name': project_name or 'SmartCutList',
+                    'unit': _palette_settings.get('default_units', 'mm'),
+                }
+                weld_plan_generator.generate_weld_plan(
+                    _weld_plans, output_dir, weld_settings, groups=_groups
+                )
+                exported.append('Drill & Weld Plan')
+            except Exception:
+                logger.exception('Export All: Weld plan failed')
+
+        summary = '\n'.join('  ✓ {}'.format(e) for e in exported)
+        _ui.messageBox(
+            'Export complete to:\n{}\n\n{}'.format(output_dir, summary),
+            'Export All Complete',
+        )
+    except Exception:
+        logger.exception('Export All failed')
+        _ui.messageBox('Export All error:\n{}'.format(traceback.format_exc()))
+
+
 _MESSAGE_HANDLERS = {
     'htmlReady':             _handle_html_ready,
     'override_type':         _handle_override_type,
@@ -644,6 +1403,25 @@ _MESSAGE_HANDLERS = {
     'export_sourced':        _handle_export_sourced,
     'export_package':        _handle_export_package,
     'save_template':         _handle_save_template,
+    # Weld plan actions
+    'weld_reorder_steps':     _handle_weld_reorder_steps,
+    'weld_add_body':          _handle_weld_add_body,
+    'weld_remove_body':       _handle_weld_remove_body,
+    'weld_create_assembly':   _handle_weld_create_assembly,
+    'weld_delete_assembly':   _handle_weld_delete_assembly,
+    'weld_update_description': _handle_weld_update_description,
+    'weld_update_notes':      _handle_weld_update_notes,
+    'weld_nest_assembly':     _handle_weld_nest_assembly,
+    'weld_unnest_assembly':   _handle_weld_unnest_assembly,
+    'generate_weld_plan':     _handle_generate_weld_plan,
+    'highlight_weld_step':    _handle_highlight_weld_step,
+    'weld_preview_step':      _handle_weld_preview_step,
+    # Hole detection actions
+    'capture_hole_images':    _handle_capture_hole_images,
+    'highlight_hole':         _handle_highlight_hole,
+    'export_drill_csv':       _handle_export_drill_csv,
+    'export_dxfs_only':       _handle_export_dxfs_only,
+    'export_all':             _handle_export_all,
 }
 
 
@@ -759,7 +1537,9 @@ def _export_csv(settings: dict) -> None:
 
         filepath = file_dlg.filename
         export_settings = _export_settings_from_ui(settings)
-        result = export_cutlist.export_csv(_groups, filepath, export_settings)
+        result = export_cutlist.export_csv(
+            _groups, filepath, export_settings, hole_summaries=_hole_summaries
+        )
         logger.info('Review palette CSV export: %s', result.filepath)
         _ui.messageBox('CSV saved to:\n{}'.format(result.filepath), 'Export Complete')
 
@@ -782,7 +1562,10 @@ def _export_json(settings: dict) -> None:
 
         filepath = file_dlg.filename
         export_settings = _export_settings_from_ui(settings)
-        result = export_cutlist.export_json(_groups, filepath, export_settings)
+        result = export_cutlist.export_json(
+            _groups, filepath, export_settings,
+            weld_plans=_weld_plans, hole_summaries=_hole_summaries,
+        )
         logger.info('Review palette JSON export: %s', result.filepath)
         _ui.messageBox('JSON saved to:\n{}'.format(result.filepath), 'Export Complete')
 
@@ -877,7 +1660,9 @@ def _export_package(settings: dict) -> None:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         csv_path = os.path.join(output_dir, '{}_cut_list_{}.csv'.format(base_name, timestamp))
 
-        csv_result = export_cutlist.export_csv(_groups, csv_path, export_settings)
+        csv_result = export_cutlist.export_csv(
+            _groups, csv_path, export_settings, hole_summaries=_hole_summaries
+        )
         dxf_paths = export_dxf.export_dxfs(
             _groups,
             output_dir,
